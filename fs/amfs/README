@@ -1,0 +1,7 @@
+
+
+REFERENCES
+-----------
+1. ECRYPTFS source code - to understand how private data is read and stored.
+https://git.kernel.org/cgit/linux/kernel/git/tyhicks/ecryptfs.git/tree/fs/ecryptfs
+2. 
