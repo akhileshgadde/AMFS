@@ -1,7 +1,12 @@
+AMFS is compiled as a lodabale module in Linux 4.0 kernel. The script "install_module.sh" from HW1 has been modified for AMFS and can be used for loading and unloading AMFS module. 
+The initial AMFS directory is a direct copy of WRAPFS file system. The function names and other MACROS are renamed as AMFS from WRAPFS and additonal code is added on top of WRAPFS code to achieve our functionality.
 
 
 REFERENCES
 -----------
 1. ECRYPTFS source code - to understand how private data is read and stored.
 https://git.kernel.org/cgit/linux/kernel/git/tyhicks/ecryptfs.git/tree/fs/ecryptfs
-2. 
+2. WRAPFS source code - base code on which AMFS is developed.
+Code path - linux/fs/wrapfs.
+3. strsep() function usage - http://stackoverflow.com/questions/6865963/strsep-usage-and-its-alternative 
+4. 
