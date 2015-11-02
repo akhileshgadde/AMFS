@@ -27,6 +27,8 @@
 #include <linux/slab.h>
 #include <linux/sched.h>
 
+#include "l_list.h"
+
 /* the file system name */
 #define AMFS_NAME "amfs"
 
@@ -78,9 +80,16 @@ struct amfs_dentry_info {
 	struct path lower_path;
 };
 
+/* private data structure for amfs super-block */
+struct amfs_sb_private {
+	char *filename;
+	struct ListNode *head;
+};
+
 /* amfs super-block data in memory */
 struct amfs_sb_info {
 	struct super_block *lower_sb;
+	void *private_data;
 };
 
 /*

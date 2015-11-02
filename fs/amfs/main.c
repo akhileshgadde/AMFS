@@ -176,13 +176,13 @@ static int amfs_open_pattern_file(const char *file_name, struct file **filp)
 	}
 	if ((rc = amfs_check_pattern_file(*filp)) != 0)
 		goto out;
-	#if 0 
-	if ((!*filp->f_op) || (!*filp->f_op->read)) {
+	#if 1 
+	if ((!(*filp)->f_op) || (!(*filp)->f_op->read)) {
 		printk("KERNEL_AMFS: No read permission on pattern file\n");
 		rc = -EACCES;
 		goto out;
 	}
-	*filp->f_pos = 0;	
+	(*filp)->f_pos = 0;	
 	#endif
 out:
 	return rc;
@@ -211,6 +211,7 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 {
 	int rc = 0;
 	int bytes_read;
+	struct amfs_sb_private *sb_pr;
 	char *file_name;
 	//long long p_size;
 	struct file *filp;
@@ -220,7 +221,7 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 	void *lower_path_name = (void *) dev_name;
 	if ((rc = amfs_parse_options(raw_data, &file_name)) != 0)
 		goto out;
-	printk("KERN_AMFS_MOUNT: File_name: %s\n", file_name);
+	printk("KERN_AMFS_MOUNT: File_name: %s, len: %d\n", file_name, strlen(file_name));
 	if ((rc = amfs_open_pattern_file(file_name, &filp)) != 0)
 		goto out;
 	page_buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
@@ -229,6 +230,20 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 		goto closefile;
 	}
 	memset(page_buf, 0, PAGE_SIZE);
+	sb_pr = (struct amfs_sb_private *) kmalloc(sizeof(struct amfs_sb_private), GFP_KERNEL);
+	if (!sb_pr) {
+		rc = -ENOMEM;
+		goto free_page_buf;
+	}
+	sb_pr->filename = (char *) kmalloc(strlen(file_name) + 1, GFP_KERNEL);
+	if (!sb_pr->filename) {
+		rc = -ENOMEM;
+		goto free_sb_private_data;
+	}
+	strcpy(sb_pr->filename, file_name);
+	sb_pr->filename[strlen(file_name)] = '\0';
+	sb_pr->head = NULL;
+	printk("KERN_AMFS: Filename in ab_amfs_priv: %s\n", sb_pr->filename);
 	while ((bytes_read = amfs_read_pattern_file(filp, page_buf, PAGE_SIZE)) > 0)
 	{
 		memset(page_buf+bytes_read, 0, PAGE_SIZE - bytes_read);
@@ -239,12 +254,24 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 				printk("KERN_AMFS: No new line char found in page_buf\n");
 			}
 			else {
-				printk("KERN_AMFS: line after strsep(): %s, len: %zu\n", pat, strlen(pat));
+				if ((rc = addtoList(&(sb_pr->head), pat, strlen(pat))) != 0)
+					goto free_sb_private_data;
+				//printk("KERN_AMFS: line after strsep(): %s, len: %zu\n", pat, strlen(pat));
 			}
 			
 		}
 	}
-//free_page_buf:
+	printk("KERN_AMFS: Printing patterns after storing in prov_data:\n");
+	printList(&(sb_pr->head));
+	/* need to move this delete to umount/kill */
+	printk("KERN_AMFS: Deleting patterns from list\n");
+	delAllFromList(&(sb_pr->head));	
+
+free_sb_private_data:
+	if (sb_pr->filename)
+		kfree(sb_pr->filename);
+	kfree(sb_pr);
+free_page_buf:
 	kfree(page_buf);
 closefile:
 	filp_close(filp, NULL);

@@ -9,4 +9,9 @@ https://git.kernel.org/cgit/linux/kernel/git/tyhicks/ecryptfs.git/tree/fs/ecrypt
 2. WRAPFS source code - base code on which AMFS is developed.
 Code path - linux/fs/wrapfs.
 3. strsep() function usage - http://stackoverflow.com/questions/6865963/strsep-usage-and-its-alternative 
-4. 
+4.
+
+ASSUMPTIONS
+------------
+1. Each pattern size is a maximum of 4096 bytes. The pattern can be present in one or two pages but the siz eof each pattern doesn't exceed 4096 bytes.
+2.  

@@ -8,7 +8,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
 #include "amfs.h"
 
 static ssize_t amfs_read(struct file *file, char __user *buf,
