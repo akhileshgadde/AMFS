@@ -117,12 +117,141 @@ out:
 	return err;
 }
 
+/* Function to parse and read the pattdb filename from raw_data and return the file pointer */
+static int amfs_parse_options(char *data, char **file_name)
+{
+	int rc = 0;
+	char *token1, *token2;
+	if (!data) {
+		rc = -EINVAL;
+		goto out;
+	}
+	token1 = strstr(data, "pattdb=");
+	if (!token1) {
+		rc = -EINVAL;
+		goto out;
+	}
+	token2 = strstr(token1, "=");
+	*file_name = token2+1;
+	
+out:
+	return rc;	
+}
+
+/*
+*   Function to check if file exists and if it is regular or not 
+*   Input: File structure pointer. 
+*   Return: 0 if success, errno on failure.
+*/
+int amfs_check_pattern_file(struct file *filp)
+{
+    int ret = 0;
+    //printk("KERN: Checking File is regular\n");
+    if (S_ISDIR(filp->f_path.dentry->d_inode->i_mode)) {
+        ret = -EISDIR;
+        goto end;
+    }	
+    if (!S_ISREG(filp->f_path.dentry->d_inode->i_mode)) {
+        ret = -EPERM;
+        goto end;
+	}
+end:
+    return ret;
+}
+
+/* Function to verify the pattern file path, permissions,etc and open the file */
+static int amfs_open_pattern_file(const char *file_name, struct file **filp)
+{
+	int rc = 0;
+	//*filp = NULL;
+	if (file_name == NULL) {
+		rc = -ENOENT;
+		goto out;
+	}
+	*filp = filp_open(file_name, O_RDONLY, 0);
+	if ((*filp == NULL) || (IS_ERR(*filp))) {
+		rc = PTR_ERR(*filp);
+		printk("KERNEL_AMFS: Error opening pattern file: %d\n", rc);
+		goto out;
+	}
+	if ((rc = amfs_check_pattern_file(*filp)) != 0)
+		goto out;
+	#if 0 
+	if ((!*filp->f_op) || (!*filp->f_op->read)) {
+		printk("KERNEL_AMFS: No read permission on pattern file\n");
+		rc = -EACCES;
+		goto out;
+	}
+	*filp->f_pos = 0;	
+	#endif
+out:
+	return rc;
+}
+
+/* 
+*   Read data from the file given by the File structure and return the # of bytes read
+*   Input: File structure, Buffer to read and length
+*   Output: Number of bytes read
+*/
+int amfs_read_pattern_file(struct file *filp, void *buf, size_t len)
+{
+    mm_segment_t oldfs;
+    int bytes = 0;
+    oldfs = get_fs();
+    set_fs(KERNEL_DS);
+    bytes = vfs_read(filp, buf, len, &filp->f_pos);
+    set_fs(oldfs);
+    printk("KERN_AMFS: Read file: Bytes: %d\n", bytes);
+    return bytes;
+}
+
+
 struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 			    const char *dev_name, void *raw_data)
 {
+	int rc = 0;
+	int bytes_read;
+	char *file_name;
+	//long long p_size;
+	struct file *filp;
+	char *pat;
+	char *page_buf;
+	//char *dup_page_buf;
 	void *lower_path_name = (void *) dev_name;
-
-	return mount_nodev(fs_type, flags, lower_path_name,
+	if ((rc = amfs_parse_options(raw_data, &file_name)) != 0)
+		goto out;
+	printk("KERN_AMFS_MOUNT: File_name: %s\n", file_name);
+	if ((rc = amfs_open_pattern_file(file_name, &filp)) != 0)
+		goto out;
+	page_buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!page_buf) {
+		rc = -ENOMEM;
+		goto closefile;
+	}
+	memset(page_buf, 0, PAGE_SIZE);
+	while ((bytes_read = amfs_read_pattern_file(filp, page_buf, PAGE_SIZE)) > 0)
+	{
+		while ((pat = strsep(&page_buf, "\n")) != NULL)
+		{
+			if (page_buf == NULL) /* write code to handle patterns extending beyond a single page */
+			{
+				printk("KERN_AMFS: No new line char found in page_buf\n");
+			}
+			else {
+				printk("KERN_AMFS: line after strsep(): %s, len: %zu\n", pat, strlen(pat));
+			}
+			
+		}
+	}
+//free_page_buf:
+	kfree(page_buf);
+closefile:
+	filp_close(filp, NULL);
+out:	
+	if (rc != 0) 
+		return ERR_PTR(rc);
+	else
+		return mount_nodev(fs_type, flags, lower_path_name,
 			   amfs_read_super);
 }
 
@@ -140,7 +269,6 @@ static int __init init_amfs_fs(void)
 	int err;
 
 	pr_info("Registering amfs " AMFS_VERSION "\n");
-
 	err = amfs_init_inode_cache();
 	if (err)
 		goto out;
@@ -164,10 +292,8 @@ static void __exit exit_amfs_fs(void)
 	pr_info("Completed amfs module unload\n");
 }
 
-MODULE_AUTHOR("Erez Zadok, Filesystems and Storage Lab, Stony Brook University"
-	      " (http://www.fsl.cs.sunysb.edu/)");
-MODULE_DESCRIPTION("AMFS " AMFS_VERSION
-		   " (http://amfs.filesystems.org/)");
+MODULE_AUTHOR("AKHILESH GADDE");
+MODULE_DESCRIPTION("AMFS");
 MODULE_LICENSE("GPL");
 
 module_init(init_amfs_fs);
