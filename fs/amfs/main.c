@@ -231,6 +231,7 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 	memset(page_buf, 0, PAGE_SIZE);
 	while ((bytes_read = amfs_read_pattern_file(filp, page_buf, PAGE_SIZE)) > 0)
 	{
+		memset(page_buf+bytes_read, 0, PAGE_SIZE - bytes_read);
 		while ((pat = strsep(&page_buf, "\n")) != NULL)
 		{
 			if (page_buf == NULL) /* write code to handle patterns extending beyond a single page */
