@@ -11,6 +11,7 @@
 
 #include "amfs.h"
 #include <linux/module.h>
+#include "read_pattern.h"
 
 /*
  * There is no need to lock the amfs_super_info's rwsem as there is no
@@ -52,7 +53,8 @@ static int amfs_read_super(struct super_block *sb, void *raw_data, int silent)
 	lower_sb = lower_path.dentry->d_sb;
 	atomic_inc(&lower_sb->s_active);
 	amfs_set_lower_super(sb, lower_sb);
-
+	amfs_set_sb_private(sb, sb_pr);
+	
 	/* inherit maxbytes from lower file system */
 	sb->s_maxbytes = lower_sb->s_maxbytes;
 
@@ -211,7 +213,6 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 {
 	int rc = 0;
 	int bytes_read;
-	struct amfs_sb_private *sb_pr;
 	char *file_name;
 	//long long p_size;
 	struct file *filp;
@@ -230,7 +231,7 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 		goto closefile;
 	}
 	memset(page_buf, 0, PAGE_SIZE);
-	sb_pr = (struct amfs_sb_private *) kmalloc(sizeof(struct amfs_sb_private), GFP_KERNEL);
+	sb_pr = (struct amfs_sb_private *) kzalloc(sizeof(struct amfs_sb_private), GFP_KERNEL);
 	if (!sb_pr) {
 		rc = -ENOMEM;
 		goto free_page_buf;
@@ -265,7 +266,7 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 	printList(&(sb_pr->head));
 	/* need to move this delete to umount/kill */
 	printk("KERN_AMFS: Deleting patterns from list\n");
-	delAllFromList(&(sb_pr->head));	
+	//delAllFromList(&(sb_pr->head));	
 
 free_sb_private_data:
 	if (sb_pr->filename)
@@ -283,11 +284,19 @@ out:
 			   amfs_read_super);
 }
 
+static void amfs_kill_block_super(struct super_block *sb)
+{
+	struct amfs_sb_private *sb_pr = ((struct amfs_sb_info *)sb->s_fs_info)->amfs_sb_pr;
+	printk("AMFS_KILL: freeing head\n");
+	delAllFromList(&(sb_pr->head));
+	generic_shutdown_super(sb);
+}
+
 static struct file_system_type amfs_fs_type = {
 	.owner		= THIS_MODULE,
 	.name		= AMFS_NAME,
 	.mount		= amfs_mount,
-	.kill_sb	= generic_shutdown_super,
+	.kill_sb	= amfs_kill_block_super,
 	.fs_flags	= 0,
 };
 MODULE_ALIAS_FS(AMFS_NAME);

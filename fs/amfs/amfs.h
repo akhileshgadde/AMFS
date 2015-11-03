@@ -86,10 +86,11 @@ struct amfs_sb_private {
 	struct ListNode *head;
 };
 
+
 /* amfs super-block data in memory */
 struct amfs_sb_info {
 	struct super_block *lower_sb;
-	void *private_data;
+	struct amfs_sb_private *amfs_sb_pr;
 };
 
 /*
@@ -148,6 +149,12 @@ static inline void amfs_set_lower_super(struct super_block *sb,
 	AMFS_SB(sb)->lower_sb = val;
 }
 
+/* set superblock private data */
+static inline void amfs_set_sb_private(struct super_block *sb,
+					struct amfs_sb_private *sb_pr)
+{
+	AMFS_SB(sb)->amfs_sb_pr = sb_pr;
+}
 /* path based (dentry/mnt) macros */
 static inline void pathcpy(struct path *dst, const struct path *src)
 {
