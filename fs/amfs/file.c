@@ -9,6 +9,7 @@
  * published by the Free Software Foundation.
  */
 #include "amfs.h"
+#include "amfsctl.h"
 
 static ssize_t amfs_read(struct file *file, char __user *buf,
 			   size_t count, loff_t *ppos)
@@ -63,11 +64,65 @@ static int amfs_readdir(struct file *file, struct dir_context *ctx)
 	return err;
 }
 
+unsigned long get_patterndb_len(struct ListNode *head)
+{
+    struct ListNode *temp;
+    unsigned long count = 0;
+    temp = head;
+    while (temp != NULL)
+    {
+        count++;
+        temp = temp->next;
+    }
+    return count;
+}
+
 static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 				  unsigned long arg)
 {
 	long err = -ENOTTY;
 	struct file *lower_file;
+	unsigned long count = 0;
+    struct super_block *sb;
+    struct amfs_sb_info *sb_info;
+	if (_IOC_TYPE(cmd) != AMFSCTL_IOCTL) {
+        err = -ENOTTY;
+        goto out;
+    }
+    if (_IOC_NR(cmd) > AMFSCTL_IOC_MAXNR) {
+        err = -ENOTTY;
+        goto out;
+    }
+    if (_IOC_DIR(cmd) & _IOC_READ)
+        err = !access_ok(VERIFY_WRITE, (void __user *)arg, _IOC_SIZE(cmd));
+    else if (_IOC_DIR(cmd) & _IOC_WRITE)
+        err =  !access_ok(VERIFY_READ, (void __user *)arg, _IOC_SIZE(cmd));
+    if (err != 0) {
+        err = -EFAULT;
+        goto out;
+    }
+    sb = amfs_get_super(file);
+    sb_info = (struct amfs_sb_info *) amfs_get_fs_info(sb);
+	switch(cmd)
+    {
+        case AMFSCTL_LIST_PATTERN:
+
+            break;
+        case AMFSCTL_ADD_PATTERN:
+
+            break;
+        case AMFSCTL_DEL_PATTERN:
+
+            break;
+        case AMFSCTL_LEN_PATTERN:
+            printk("IOCTL: HEAD ptr: %p\n", sb_info->amfs_sb_pr->head);
+            count  = get_patterndb_len(sb_info->amfs_sb_pr->head);
+            if (copy_to_user(&arg, &count, sizeof(unsigned long)) != 0) {
+                err = -EACCES;
+                goto out;
+            }
+            break;
+	}
 
 	lower_file = amfs_lower_file(file);
 

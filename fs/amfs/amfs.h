@@ -155,6 +155,19 @@ static inline void amfs_set_sb_private(struct super_block *sb,
 {
 	AMFS_SB(sb)->amfs_sb_pr = sb_pr;
 }
+
+/* Get the superblock of a file */
+static inline struct super_block *amfs_get_super(struct file *f)
+{
+    return (f->f_inode->i_sb);
+}
+
+/* get the private data from the super block */
+static inline struct amfs_sb_info *amfs_get_fs_info(struct super_block *sb)
+{
+    return ((struct amfs_sb_info *)(sb->s_fs_info));
+}
+
 /* path based (dentry/mnt) macros */
 static inline void pathcpy(struct path *dst, const struct path *src)
 {

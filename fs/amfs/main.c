@@ -54,7 +54,7 @@ static int amfs_read_super(struct super_block *sb, void *raw_data, int silent)
 	atomic_inc(&lower_sb->s_active);
 	amfs_set_lower_super(sb, lower_sb);
 	amfs_set_sb_private(sb, sb_pr);
-	
+	printk("AMFS_READ_SUPER: Set the sb_pr: %p\n", ((struct amfs_sb_info *)sb->s_fs_info)->amfs_sb_pr);
 	/* inherit maxbytes from lower file system */
 	sb->s_maxbytes = lower_sb->s_maxbytes;
 
@@ -241,6 +241,7 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 		rc = -ENOMEM;
 		goto free_sb_private_data;
 	}
+	printk("AMFS_MOUNT: sb_pr: %p\n", sb_pr);
 	strcpy(sb_pr->filename, file_name);
 	sb_pr->filename[strlen(file_name)] = '\0';
 	sb_pr->head = NULL;
@@ -265,7 +266,6 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 	printk("KERN_AMFS: Printing patterns after storing in prov_data:\n");
 	printList(&(sb_pr->head));
 	/* need to move this delete to umount/kill */
-	printk("KERN_AMFS: Deleting patterns from list\n");
 	//delAllFromList(&(sb_pr->head));	
 
 free_sb_private_data:
@@ -284,20 +284,27 @@ out:
 			   amfs_read_super);
 }
 
+#if 0
 static void amfs_kill_block_super(struct super_block *sb)
 {
 	struct amfs_sb_private *sb_pr = ((struct amfs_sb_info *)sb->s_fs_info)->amfs_sb_pr;
+	printList(&(sb_pr->head));
+	kill_anon_super(sb);
 	printk("AMFS_KILL: freeing head\n");
+	if (!sb_pr) {
+		printk("AMFS_KILL: sb_pr NULL\n");
+		return;
+	}
 	delAllFromList(&(sb_pr->head));
-	generic_shutdown_super(sb);
 }
+#endif
 
 static struct file_system_type amfs_fs_type = {
-	.owner		= THIS_MODULE,
-	.name		= AMFS_NAME,
-	.mount		= amfs_mount,
-	.kill_sb	= amfs_kill_block_super,
-	.fs_flags	= 0,
+	.owner		    = THIS_MODULE,
+	.name		    = AMFS_NAME,
+	.mount		    = amfs_mount,
+	.kill_sb	    = generic_shutdown_super,
+	.fs_flags	    = 0,
 };
 MODULE_ALIAS_FS(AMFS_NAME);
 
