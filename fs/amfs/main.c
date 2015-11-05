@@ -53,15 +53,15 @@ static int amfs_read_super(struct super_block *sb, void *raw_data, int silent)
 	lower_sb = lower_path.dentry->d_sb;
 	atomic_inc(&lower_sb->s_active);
 	amfs_set_lower_super(sb, lower_sb);
-	((struct amfs_sb_info *)sb->s_fs_info)->filename = (char *) kmalloc(strlen(filename) + 1, GFP_KERNEL);
-	if (!((struct amfs_sb_info *)sb->s_fs_info)->filename) {
+	AMFS_SB(sb)->filename = (char *) kmalloc(strlen(filename) + 1, GFP_KERNEL);
+	if (!AMFS_SB(sb)->filename) {
 		err = -ENOMEM;
 		goto out_free;
 	}
-	strcpy(((struct amfs_sb_info *)sb->s_fs_info)->filename, filename);
-	printk("SUPER: filename: %s\n", ((struct amfs_sb_info *)sb->s_fs_info)->filename);	
+	strcpy(AMFS_SB(sb)->filename, filename);
+	printk("SUPER: filename: %s\n", (AMFS_SB(sb)->filename));	
 	printk("SUPER: Head from sb_pr->head: %p\n", head);
-	((struct amfs_sb_info *)sb->s_fs_info)->head = head;
+	AMFS_SB(sb)->head = head;
 	//amfs_set_sb_private(sb, sb_pr);
 	//amfs_set_sb_ll_head(AMFS_SB(sb)->amfs_sb_pr, sb_pr->head);
 	/* inherit maxbytes from lower file system */
@@ -125,10 +125,12 @@ out_free:
 	path_put(&lower_path);
 
 out:
+	#if 0
 	if (filename)
 		kfree(filename);
 	if (head)
 		kfree(head);
+	#endif
 	return err;
 }
 
@@ -286,12 +288,18 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 	goto out;
 
 free_filename:
-	if (filename)
+	if (filename) {
 		kfree(filename);
-	if (head)
+		filename = NULL;
+	}
+	if (head) {
 		kfree(head);
-	if (page_buf)
+		head = NULL;
+	}
+	if (page_buf) {
 		kfree(page_buf);
+		page_buf = NULL;
+	}
 closefile:
 	filp_close(filp, NULL);
 out:	
