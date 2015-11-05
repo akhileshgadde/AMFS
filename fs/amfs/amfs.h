@@ -90,7 +90,8 @@ struct amfs_sb_private {
 /* amfs super-block data in memory */
 struct amfs_sb_info {
 	struct super_block *lower_sb;
-	struct amfs_sb_private *amfs_sb_pr;
+	char *filename;
+    struct ListNode *head;
 };
 
 /*
@@ -153,13 +154,22 @@ static inline void amfs_set_lower_super(struct super_block *sb,
 static inline void amfs_set_sb_private(struct super_block *sb,
 					struct amfs_sb_private *sb_pr)
 {
-	AMFS_SB(sb)->amfs_sb_pr = sb_pr;
+	strcpy(AMFS_SB(sb)->filename, sb_pr->filename);
+	AMFS_SB(sb)->head = sb_pr->head;
 }
+
+#if 0
+static inline void amfs_set_sb_ll_head(struct amfs_sb_private *sb_pr,
+					struct ListNode *head)
+{
+	sb_pr->head = head;
+}
+#endif
 
 /* Get the superblock of a file */
 static inline struct super_block *amfs_get_super(struct file *f)
 {
-    return (f->f_inode->i_sb);
+    return (f->f_path.dentry->d_inode->i_sb);
 }
 
 /* get the private data from the super block */
