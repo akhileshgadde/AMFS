@@ -21,7 +21,7 @@ int main(int argc, char **argv)
 {
 	int rc = 0;
 	int fd = 0;
-	unsigned long count;
+	unsigned long count = 0;
 	if (argc < 2) {
 		rc = -1;
 		print_usage();

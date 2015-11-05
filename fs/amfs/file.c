@@ -120,9 +120,9 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
             break;
         case AMFSCTL_LEN_PATTERN:
 			/* add check for the pointers not null in case FS is not mounted */
-            //count  = get_patterndb_len(sb_info->amfs_sb_pr->head);
-			count = 5;
-            if (copy_to_user(&arg, &count, sizeof(unsigned long)) != 0) {
+            count  = get_patterndb_len(sb_info->head);
+			printk("ioctl: count: %lu\n", count);	
+            if (copy_to_user((unsigned long *) &arg, &count, sizeof(count)) != 0) {
 				printk("IOCTL_ERR: Copy_to_user error\n");
                 err = -EACCES;
                 goto out;
