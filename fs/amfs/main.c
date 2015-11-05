@@ -283,6 +283,7 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 	printList(&head);
 	/* need to move this delete to umount/kill */
 	//delAllFromList(&(sb_pr->head));	
+	goto out;
 
 free_filename:
 	if (filename)
