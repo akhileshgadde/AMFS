@@ -22,7 +22,6 @@ static void amfs_put_super(struct super_block *sb)
 {
 	struct amfs_sb_info *spd;
 	struct super_block *s;
-
 	spd = AMFS_SB(sb);
 	if (!spd)
 		return;
@@ -31,7 +30,14 @@ static void amfs_put_super(struct super_block *sb)
 	s = amfs_lower_super(sb);
 	amfs_set_lower_super(sb, NULL);
 	atomic_dec(&s->s_active);
-
+	
+	/* free Linked list and pattern filename*/
+	printk("Freeing Linked list DS\n");
+	delAllFromList(&spd->head);
+	if (spd->filename) {
+		printk("Freeing filename\n");
+		kfree(spd->filename);
+	}
 	kfree(spd);
 	sb->s_fs_info = NULL;
 }

@@ -89,7 +89,8 @@ void delAllFromList(struct ListNode **head)
     curr = (*head);
     while (curr != NULL)
     {
-        prev = curr;
+        //printk("Deleting from list\n");
+		prev = curr;
         curr = (curr->next);
 		if (prev->pattern)
 			kfree(prev->pattern);
