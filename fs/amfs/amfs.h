@@ -115,6 +115,9 @@ static inline struct amfs_inode_info *AMFS_I(const struct inode *inode)
 /* file to private Data */
 #define AMFS_F(file) ((struct amfs_file_info *)((file)->private_data))
 
+/* pattern in struct from args */
+#define STRUCT_PAT(arg) ((char *)((struct pat_struct *) arg)->pattern)
+
 /* file to lower file */
 static inline struct file *amfs_lower_file(const struct file *f)
 {

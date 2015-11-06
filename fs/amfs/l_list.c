@@ -58,7 +58,7 @@ void copy_pattern_db(struct ListNode *head, char *buf, unsigned long size)
 	//int first_copy = 1;
 	struct ListNode *temp = head;
 	while ((size) && (temp != NULL)) {
-		printk("Copying at %p\n", (buf+offset));
+		//printk("Copying at %p\n", (buf+offset));
 		memcpy((buf+offset), temp->pattern, temp->len);
 		if (!last_char_flag) {
 			last_char_flag = 1;
@@ -102,30 +102,37 @@ void delAllFromList(struct ListNode **head)
 int deletePatternInList(struct ListNode **head, char *pat, unsigned int p_len)
 {
     int rc = 0;
-    struct ListNode *prev, *curr = *head;
+    struct ListNode *prev = NULL, *curr = NULL;
     if (!strncmp((*head)->pattern, pat, p_len)) {
-        *head = (*head)->next;
-        goto freeNode;
+        printk("DEL: found matching %s in head\n", (*head)->pattern);
+		curr = *head;
+		*head = (*head)->next;
+        kfree(curr);
     }
     else {
-        while (curr != NULL)
-        {
-            prev = curr;
-            curr = (curr->next);
-            if (!strncmp (curr->pattern, pat, p_len))
+		prev = *head;
+		curr = (*head)->next;
+        while (curr != NULL) {
+			printk("Comparing %s with %s, plen: %u\n", curr->pattern, pat, p_len);
+            if (!strncmp (curr->pattern, pat, p_len)) {
+				printk("DEL: Found matching pattern: %s\n", curr->pattern);
                 break;
-        }
-        if (curr == NULL) { /* pattern not found in list */
-            rc = -1;
-            goto out;
+        	}
+        prev = curr;
+        curr = (curr->next);
+		}
+		if (curr == NULL) { /* pattern not found in list */
+			printk("DEL: Pattern not found in list\n");
+           	rc = -1;
+           	goto out;
         }
         else {
-            (prev->next) = (curr->next);
-            goto freeNode;
+           	(prev->next) = (curr->next);
+    		printk("Del: Freeing curr\n");
+			kfree(curr);
         }
     }
-freeNode:
-    kfree(curr);
+	printList(head);
 out:
     return rc;
 }
@@ -141,9 +148,39 @@ void printList(struct ListNode **head)
     else {
         printk("KERN_AMFS: Patterns \n");
         while (temp != NULL) {
-            printk("%s, len:%u\n", temp->pattern, temp->len);
+            printk("%s\n", temp->pattern);
             temp = (temp->next);
         }
     }
 }
+#if 0
+/* Allocate memory and copy to struct pointer */
+int struct_alloc_copy(struct pat_struct **p_struct)
+{
+	int ret = 0;
+	*p_struct = (struct pat_struct *) kmalloc(sizeof (struct pat_struct), GFP_KERNEL);
+	if (!*p_struct) {
+		err = -ENOMEM;
+		goto out;
+	}
+	if (copy_from_user(*p_struct, (struct pat_struct *) arg, sizeof (struct pat_struct))) {
+		printk("Copy_from_user failed for p_struct\n");
+		err = -EACCES;
+		goto free_pat_struct;
+	}
+	(*p_struct)->pattern = NULL;
+	printk("Size after copying to ker_buf: %u\n", p_struct->size);
+	(*p_struct)->pattern = (char *) kmalloc((*p_struct)->size + 1, GFP_KERNEL);
+	if (!(*p_struct)->pattern) {
+		err = -ENOMEM;
+		goto free_pat_struct;
+	}
+	if (copy_from_user((*p_struct)->pattern, STRUCT_PAT(arg), (*p_struct)->size)) {
+		err = -EACCES;
+		goto ret;
+	}
 
+out: 
+	return ret;
+}
+#endif

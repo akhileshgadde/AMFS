@@ -70,6 +70,7 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 {
 	long err = 0;
 	int handle_flag = 0;
+	struct pat_struct *p_struct = NULL;
 	char *pat_buf = NULL;
 	struct file *lower_file;
 	unsigned long size = 0;
@@ -108,7 +109,7 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			}
 			printk("ioctl: copying pattern db\n");
 			copy_pattern_db(sb_info->head, pat_buf, size);
-			printk("pattern Db after copying to buf:\n");
+			//printk("pattern Db after copying to buf:\n");
 			//print_pattern_db(pat_buf, size);
 			#if 1
 			if (copy_to_user((char *) arg, pat_buf, size)) {
@@ -118,16 +119,67 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			}
 			#endif
             break;
+
         case AMFSCTL_ADD_PATTERN:
 			handle_flag = 1;
-            break;
-        case AMFSCTL_DEL_PATTERN:
+			p_struct = (	struct pat_struct *) kmalloc(sizeof (struct pat_struct), GFP_KERNEL);
+			if (!p_struct) {
+				err = -ENOMEM;
+				goto out;
+			}
+			if (copy_from_user(p_struct, (struct pat_struct *) arg, sizeof (struct pat_struct))) {
+				printk("Copy_from_user failed for p_struct\n");
+				err = -EACCES;
+				goto free_pat_struct;
+			}
+			p_struct->pattern = NULL;
+			printk("Size after copying to ker_buf: %u\n", p_struct->size);
+			p_struct->pattern = (char *) kmalloc(p_struct->size + 1, GFP_KERNEL);
+            if (!p_struct->pattern) {
+				err = -ENOMEM;
+				goto free_pat_struct;
+			}
+			if (copy_from_user(p_struct->pattern, STRUCT_PAT(arg), p_struct->size)) {
+				err = -EACCES;
+				goto free_struct_pattern;
+			}
+			if ((err = addtoList(&sb_info->head, p_struct->pattern, p_struct->size)) != 0)
+				goto free_struct_pattern;
+			printList(&sb_info->head); 
+			break;
+ 
+       case AMFSCTL_DEL_PATTERN:
 			handle_flag = 1;
+			 p_struct = (    struct pat_struct *) kmalloc(sizeof (struct pat_struct), GFP_KERNEL);
+            if (!p_struct) {
+                err = -ENOMEM;
+                goto out;
+            }
+            if (copy_from_user(p_struct, (struct pat_struct *) arg, sizeof (struct pat_struct))) {
+                printk("Copy_from_user failed for p_struct\n");
+                err = -EACCES;
+                goto free_pat_struct;
+            }
+            p_struct->pattern = NULL;
+            printk("Size after copying to ker_buf: %u\n", p_struct->size);
+            p_struct->pattern = (char *) kmalloc(p_struct->size + 1, GFP_KERNEL);
+            if (!p_struct->pattern) {
+                err = -ENOMEM;
+                goto free_pat_struct;
+            }
+            if (copy_from_user(p_struct->pattern, STRUCT_PAT(arg), p_struct->size)) {
+                err = -EACCES;
+                goto free_struct_pattern;
+            }
+			if ((err = deletePatternInList(&sb_info->head, p_struct->pattern, p_struct->size)) != 0)
+                goto free_struct_pattern;
+			printk("After deleting\n");
+            printList(&sb_info->head);
             break;
         case AMFSCTL_LEN_PATTERN:
 			/* add check for the pointers not null in case FS is not mounted */
 			handle_flag = 1;
-			printk("pattern_len: count: %lu\n", size);	
+			printk("pattern_len: Size: %lu\n", size);	
             if (copy_to_user((unsigned long *) arg, &size, sizeof(size))) {
 				printk("IOCTL_ERR: Copy_to_user error\n");
                 err = -EACCES;
@@ -149,6 +201,13 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			fsstack_copy_attr_all(file_inode(file),
 					      file_inode(lower_file));
 	}
+
+free_struct_pattern:
+	if ((p_struct) && (p_struct->pattern))
+		kfree(p_struct->pattern);
+free_pat_struct:
+	if (p_struct)
+		kfree(p_struct);
 free_patbuf:
 	if (pat_buf)
 		kfree(pat_buf);

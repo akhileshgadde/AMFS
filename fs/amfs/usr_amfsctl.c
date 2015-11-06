@@ -14,9 +14,13 @@ void print_usage();
 int copy_args(char **buf, char *optarg);
 unsigned long get_pattern_count(int fd);
 int get_pattern_db(int fd);
+int add_to_patdb(int fd, char *pat_buf);
+int del_from_patdb(int fd, char *pat_buf);
+
 void print_pattern_db(char *buf, unsigned long size);
 
-char *pat_buf = NULL, *mnt_pt = NULL;
+struct pat_struct *p_struct = NULL;
+char *mnt_pt = NULL, *pat_buf = NULL;
 int list_flag = 0, add_flag = 0, del_flag = 0; 
 
 int main(int argc, char **argv)
@@ -41,22 +45,91 @@ int main(int argc, char **argv)
 		rc = -1;
 		goto free_buf;
 	}
-	if (list_flag == 1) {
+	if (list_flag) {
 		printf("List flag set, calling\n");
 		rc = get_pattern_db(fd);
-		if (rc < 0)
-			goto free_buf;
 	}
+	else if (add_flag) {
+		rc = add_to_patdb(fd, pat_buf);
+	}
+	else if (del_flag) {
+		rc = del_from_patdb(fd, pat_buf);
+	}
+	if (rc < 0) {
+		printf("Ioctl operation failed\n");
+	    goto free_buf;
+	}
+
 free_buf:
 	#if 1
-	if (pat_buf)
-		free(pat_buf);
+	if (p_struct)
+		free(p_struct);
 	if (mnt_pt)
 		free(mnt_pt);
+	if (pat_buf)
+		free(pat_buf);
 	#endif
 out:
 	if (fd > 0)
 		close(fd);
+	return rc;
+}
+
+
+int add_to_patdb(int fd, char *pat_buf)
+{
+	int rc = 0;
+	printf("in add_to_patdb\n");
+	struct pat_struct *p_struct;
+	p_struct = (struct pat_struct *) malloc(sizeof (struct pat_struct));
+	if (!p_struct) {
+		rc = -ENOMEM;
+		goto out;
+	}
+	p_struct->size = strlen(pat_buf);
+	p_struct->pattern = NULL;
+	p_struct->pattern = (char *) malloc(p_struct->size+1);
+	if(!p_struct->pattern) {
+		rc = -ENOMEM;
+		goto out;
+	} 
+	strcpy(p_struct->pattern, pat_buf);
+	if (ioctl(fd, AMFSCTL_ADD_PATTERN, p_struct) == -1) {
+		printf("AMFSCTL_ADD_PATTERN: Error in adding new pattern.\n");
+		rc = -1;
+		goto out;
+	}
+	else
+		printf("Successfully added %s to the database\n", pat_buf);
+out:
+	return rc;
+}
+
+int del_from_patdb(int fd, char *pat_buf)
+{
+	int rc = 0;
+	struct pat_struct *p_struct;
+    p_struct = (struct pat_struct *) malloc(sizeof (struct pat_struct));
+    if (!p_struct) {
+        rc = -ENOMEM;
+        goto out;
+    }
+    p_struct->size = strlen(pat_buf);
+	p_struct->pattern = NULL;
+    p_struct->pattern = (char *) malloc(p_struct->size+1);
+    if(!p_struct->pattern) {
+        rc = -ENOMEM;
+        goto out;
+    } 
+    strcpy(p_struct->pattern, pat_buf);
+	if (ioctl(fd, AMFSCTL_DEL_PATTERN, p_struct) == -1) {
+		printf("AMFSCTL_DEL_PATTERN: Error in deleting old pattern: %s\n", p_struct->pattern);
+		rc = -1;
+		goto out;
+	}
+	else
+		printf("Successfully deleted %s to the database\n", pat_buf);
+out:
 	return rc;
 }
 
@@ -82,6 +155,10 @@ int get_pattern_db(int fd)
 		goto out;
 	}
 	pat_buf = (char *) malloc(count);
+	if (!pat_buf) {
+		rc = -ENOMEM;
+		goto out;
+	}
 	if(ioctl(fd, AMFSCTL_LIST_PATTERN, pat_buf) == -1) {
 		printf("AMFSCTL_LIST_PATTERN: Error in getting pattern db\n");
 		rc = -1;
@@ -134,7 +211,8 @@ int readargs(int argc, char **argv)
 				list_flag = 1;	
 				break;
 			case 'a':
-				add_flag = 1;
+				printf("Setting add_flag\n");
+				add_flag = 1; 
 				rc = copy_args(&pat_buf, optarg);
 				if (rc != 0)
 					goto out;
@@ -152,7 +230,7 @@ int readargs(int argc, char **argv)
 	}
 	if (optind < argc) {
 		rc = copy_args(&mnt_pt, argv[optind]);
-		if (rc != 0)
+	if (rc != 0)
 			goto out;
 		mnt_pt_flag = 1;
 		optind++;
@@ -168,8 +246,7 @@ out:
 	return rc;
 }
 
-void print_usage()
-{
+void print_usage(){
 	printf("ERROR: Use the correct format as listed below\n");
 	printf("./amfsctl [-l] [-a new-pattern] [-r old-pattern] mnt-point\n");
 	printf("-l: list the existing patterns.\n");
