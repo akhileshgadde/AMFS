@@ -13,6 +13,8 @@ int readargs(int argc, char **argv);
 void print_usage();
 int copy_args(char **buf, char *optarg);
 unsigned long get_pattern_count(int fd);
+int get_pattern_db(int fd);
+void print_pattern_db(char *buf, unsigned long size);
 
 char *pat_buf = NULL, *mnt_pt = NULL;
 int list_flag = 0, add_flag = 0, del_flag = 0; 
@@ -21,7 +23,6 @@ int main(int argc, char **argv)
 {
 	int rc = 0;
 	int fd = 0;
-	unsigned long count = 0;
 	if (argc < 2) {
 		rc = -1;
 		print_usage();
@@ -41,11 +42,10 @@ int main(int argc, char **argv)
 		goto free_buf;
 	}
 	if (list_flag == 1) {
-		count = get_pattern_count(fd);
-		if (count < 0) {
-			rc = -1;
-			goto free_buf;		
-		}
+		printf("List flag set, calling\n");
+		rc = get_pattern_db(fd);
+		if (rc < 0)
+			goto free_buf;
 	}
 free_buf:
 	#if 1
@@ -60,10 +60,42 @@ out:
 	return rc;
 }
 
+void print_pattern_db(char *buf, unsigned long size)
+{
+	//int i = 0;
+	printf("pattern database:\n");
+	#if 0
+	while (i < size) {
+		printf("%c", buf[i]);
+		i++;
+	}
+	#endif
+	printf("%s", buf);
+}
+
+int get_pattern_db(int fd)
+{
+	int rc = 0;
+	unsigned long count  = get_pattern_count(fd);
+	if (count < 0) {
+		rc = -1;
+		goto out;
+	}
+	pat_buf = (char *) malloc(count);
+	if(ioctl(fd, AMFSCTL_LIST_PATTERN, pat_buf) == -1) {
+		printf("AMFSCTL_LIST_PATTERN: Error in getting pattern db\n");
+		rc = -1;
+		goto out;
+	}
+	print_pattern_db(pat_buf, count);
+out:
+	return rc;
+}
+
 unsigned long get_pattern_count(int fd)
 {
 	unsigned long count;
-	if (ioctl(fd, AMFSCTL_LEN_PATTERN, count) == -1) {
+	if (ioctl(fd, AMFSCTL_LEN_PATTERN, &count) == -1) {
 		printf("AMFSCTL_LEN_PATTERN: Error in getting length\n");
 		count = -1;
 		goto out;
@@ -144,4 +176,3 @@ void print_usage()
 	printf("-a <new-pattern>: Adding a given new-pattern.\n");
 	printf("-r <old-patt>: Deleting an old pattern.\n");
 }
-

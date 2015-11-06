@@ -2,7 +2,7 @@
 #include "amfs.h"
 
 /* To add new patterns to the linked list data structure */
-int addtoList(struct ListNode **head, char *pat, int p_len)
+int addtoList(struct ListNode **head, char *pat, unsigned int p_len)
 {
     int rc = 0;
     struct ListNode *temp, *newNode;
@@ -18,22 +18,68 @@ int addtoList(struct ListNode **head, char *pat, int p_len)
     }
     strcpy(newNode->pattern, pat);
     newNode->next = NULL;
+	newNode->len = p_len;
     newNode->pattern[p_len] = '\0';
     if (*head == NULL) {
         *head = newNode;
-        goto out;
     }
     else {
         temp = (*head);
         while (temp->next != NULL)
             temp = (temp->next);
         (temp->next) = newNode;
-        goto out;   
     }
+    goto out;   
 free_newNode:
     kfree(newNode);
 out:
     return rc;
+}
+
+/* Get the total size of buffer needed to store all patterns*/
+unsigned long get_patterndb_len(struct ListNode *head)
+{
+    struct ListNode *temp;
+    unsigned long count = 0;
+    temp = head;
+    while (temp != NULL)
+    {
+        count += (temp->len + 1);
+        temp = temp->next;
+    }
+    return count;
+}
+
+/* Copy the pattern db into given char buffer */
+void copy_pattern_db(struct ListNode *head, char *buf, unsigned long size)
+{
+	unsigned offset = 0;
+	int last_char_flag = 0; 
+	//int first_copy = 1;
+	struct ListNode *temp = head;
+	while ((size) && (temp != NULL)) {
+		printk("Copying at %p\n", (buf+offset));
+		memcpy((buf+offset), temp->pattern, temp->len);
+		if (!last_char_flag) {
+			last_char_flag = 1;
+		}
+		//printk("Setting \n at %p\n", (buf + offset)[temp->len]);
+		(buf + offset)[temp->len] = '\n';
+		offset += (temp->len + 1);
+		size -= (temp->len + 1);
+		temp = temp->next;	
+	}
+	//buf[size] = '\0';
+}
+
+void print_pattern_db(char *buf, unsigned long size)
+{
+	unsigned offset = 0;
+	while (size) {
+		printk("%s", buf+offset);
+		size -= (strlen(buf) + 1);
+		offset += (strlen(buf) + 1);
+	}
 }
 
 /* To delete the complete linked list data structure */
@@ -45,13 +91,15 @@ void delAllFromList(struct ListNode **head)
     {
         prev = curr;
         curr = (curr->next);
+		if (prev->pattern)
+			kfree(prev->pattern);
         kfree(prev);
     }
     *head = NULL;
 }
 
 /* Delete a matching pattern and adjust the reminaing list */
-int deletePatternInList(struct ListNode **head, char *pat, int p_len)
+int deletePatternInList(struct ListNode **head, char *pat, unsigned int p_len)
 {
     int rc = 0;
     struct ListNode *prev, *curr = *head;
@@ -93,7 +141,7 @@ void printList(struct ListNode **head)
     else {
         printk("KERN_AMFS: Patterns \n");
         while (temp != NULL) {
-            printk("%s\n", temp->pattern);
+            printk("%s, len:%u\n", temp->pattern, temp->len);
             temp = (temp->next);
         }
     }

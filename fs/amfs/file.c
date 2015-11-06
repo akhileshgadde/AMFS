@@ -64,25 +64,15 @@ static int amfs_readdir(struct file *file, struct dir_context *ctx)
 	return err;
 }
 
-unsigned long get_patterndb_len(struct ListNode *head)
-{
-    struct ListNode *temp;
-    unsigned long count = 0;
-    temp = head;
-    while (temp != NULL)
-    {
-        count++;
-        temp = temp->next;
-    }
-    return count;
-}
 
 static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 				  unsigned long arg)
 {
-	long err = -ENOTTY;
+	long err = 0;
+	int handle_flag = 0;
+	char *pat_buf = NULL;
 	struct file *lower_file;
-	unsigned long count = 0;
+	unsigned long size = 0;
     struct super_block *sb;
     struct amfs_sb_info *sb_info;
 	if (_IOC_TYPE(cmd) != AMFSCTL_IOCTL) {
@@ -106,42 +96,62 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
     sb_info = amfs_get_fs_info(sb);
 	printk("IOCTL: sb_info: %p\n", sb_info);
 	printk("ioctl: Head: %p\n", sb_info->head);
-
+	size = get_patterndb_len(sb_info->head);
 	switch(cmd)
     {
         case AMFSCTL_LIST_PATTERN:
-
+			handle_flag = 1;
+			pat_buf = (char *) kmalloc(size, GFP_KERNEL);
+			if (!pat_buf) {
+				err = -ENOMEM;
+				goto out;
+			}
+			printk("ioctl: copying pattern db\n");
+			copy_pattern_db(sb_info->head, pat_buf, size);
+			printk("pattern Db after copying to buf:\n");
+			//print_pattern_db(pat_buf, size);
+			#if 1
+			if (copy_to_user((char *) arg, pat_buf, size)) {
+				printk("IOCTL: copy_to_user error\n");
+				err = -EACCES;
+				goto free_patbuf;
+			}
+			#endif
             break;
         case AMFSCTL_ADD_PATTERN:
-
+			handle_flag = 1;
             break;
         case AMFSCTL_DEL_PATTERN:
-
+			handle_flag = 1;
             break;
         case AMFSCTL_LEN_PATTERN:
 			/* add check for the pointers not null in case FS is not mounted */
-            count  = get_patterndb_len(sb_info->head);
-			printk("ioctl: count: %lu\n", count);	
-            if (copy_to_user((unsigned long *) &arg, &count, sizeof(count)) != 0) {
+			handle_flag = 1;
+			printk("pattern_len: count: %lu\n", size);	
+            if (copy_to_user((unsigned long *) arg, &size, sizeof(size))) {
 				printk("IOCTL_ERR: Copy_to_user error\n");
                 err = -EACCES;
                 goto out;
             }
             break;
 	}
+	if (!handle_flag) {
+		lower_file = amfs_lower_file(file);
 
-	lower_file = amfs_lower_file(file);
+		/* XXX: use vfs_ioctl if/when VFS exports it */
+		if (!lower_file || !lower_file->f_op)
+			goto out;
+		if (lower_file->f_op->unlocked_ioctl)
+			err = lower_file->f_op->unlocked_ioctl(lower_file, cmd, arg);
 
-	/* XXX: use vfs_ioctl if/when VFS exports it */
-	if (!lower_file || !lower_file->f_op)
-		goto out;
-	if (lower_file->f_op->unlocked_ioctl)
-		err = lower_file->f_op->unlocked_ioctl(lower_file, cmd, arg);
-
-	/* some ioctls can change inode attributes (EXT2_IOC_SETFLAGS) */
-	if (!err)
-		fsstack_copy_attr_all(file_inode(file),
-				      file_inode(lower_file));
+		/* some ioctls can change inode attributes (EXT2_IOC_SETFLAGS) */
+		if (!err)
+			fsstack_copy_attr_all(file_inode(file),
+					      file_inode(lower_file));
+	}
+free_patbuf:
+	if (pat_buf)
+		kfree(pat_buf);
 out:
 	return err;
 }
