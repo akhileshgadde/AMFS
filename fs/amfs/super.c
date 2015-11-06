@@ -35,7 +35,7 @@ static void amfs_put_super(struct super_block *sb)
 	printk("Freeing Linked list DS\n");
 	delAllFromList(&spd->head);
 	if (spd->filename) {
-		printk("Freeing filename\n");
+		printk("Freeing filename: %s\n", spd->filename);
 		kfree(spd->filename);
 	}
 	kfree(spd);

@@ -10,6 +10,7 @@
  */
 #include "amfs.h"
 #include "amfsctl.h"
+#include "pattern_io.h"
 
 static ssize_t amfs_read(struct file *file, char __user *buf,
 			   size_t count, loff_t *ppos)
@@ -71,11 +72,15 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 	long err = 0;
 	int handle_flag = 0;
 	struct pat_struct *p_struct = NULL;
+	mode_t tmp_mode;
 	char *pat_buf = NULL;
 	struct file *lower_file;
+	struct file *tmp_filp = NULL, *out_filp = NULL;
+	char *temp_filename = NULL;
 	unsigned long size = 0;
     struct super_block *sb;
     struct amfs_sb_info *sb_info;
+
 	if (_IOC_TYPE(cmd) != AMFSCTL_IOCTL) {
         err = -ENOTTY;
         goto out;
@@ -92,12 +97,14 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
         err = -EFAULT;
         goto out;
     }
+
     sb = amfs_get_super(file);
 	printk("IOCTL: sb: %p\n", sb);
     sb_info = amfs_get_fs_info(sb);
 	printk("IOCTL: sb_info: %p\n", sb_info);
 	printk("ioctl: Head: %p\n", sb_info->head);
 	size = get_patterndb_len(sb_info->head);
+
 	switch(cmd)
     {
         case AMFSCTL_LIST_PATTERN:
@@ -111,13 +118,11 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			copy_pattern_db(sb_info->head, pat_buf, size);
 			//printk("pattern Db after copying to buf:\n");
 			//print_pattern_db(pat_buf, size);
-			#if 1
 			if (copy_to_user((char *) arg, pat_buf, size)) {
 				printk("IOCTL: copy_to_user error\n");
 				err = -EACCES;
 				goto free_patbuf;
 			}
-			#endif
             break;
 
         case AMFSCTL_ADD_PATTERN:
@@ -145,7 +150,45 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			}
 			if ((err = addtoList(&sb_info->head, p_struct->pattern, p_struct->size)) != 0)
 				goto free_struct_pattern;
+
+			/* writing pattern db to tmp file and then rename to original filename */
+			temp_filename = (char *) kmalloc(strlen(sb_info->filename) + 4, GFP_KERNEL);
+			if (!temp_filename) {
+				err = -ENOMEM;
+				goto free_struct_pattern;
+			}
+			strcpy(temp_filename, sb_info->filename);
+		    strcat(temp_filename, ".tmp");
+			tmp_mode = S_IWUSR | S_IRUSR;
+			tmp_filp = open_output_file(temp_filename, &err, tmp_mode, 0);
+	 		if (!tmp_filp) {
+    		    if (err == -EACCES)
+            		goto closeTmpFile;
+        		else
+            		goto free_filename;
+    		}
+			err = write_to_pat_file(tmp_filp, sb_info->head);
+			if (err != 0) {
+				err = -EACCES;
+				goto closeTmpFile;
+			}
+			out_filp = open_output_file(sb_info->filename, &err, tmp_mode, 1);
+			if (!out_filp) {
+				printk("out_filp error\n");
+				if (err == -EACCES)
+	            	goto closeOutputFile;
+    	    	else
+            		goto closeTmpFile;
+    		}
+			err = file_rename(tmp_filp, out_filp);
+			if (err != 0) {
+				printk("Rename failed\n");
+				err = -EACCES;
+			}
+			else
+				printk("ioctl: rename successful\n");
 			printList(&sb_info->head); 
+			goto closeOutputFile;
 			break;
  
        case AMFSCTL_DEL_PATTERN:
@@ -201,7 +244,24 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			fsstack_copy_attr_all(file_inode(file),
 					      file_inode(lower_file));
 	}
+closeOutputFile:
+	if (out_filp) {
+		printk("closing out_filp\n");
+        filp_close(out_filp, NULL);
+	}
 
+closeTmpFile:
+     //vfs_unlink(tmp_filp->f_path.dentry->d_parent->d_inode, tmp_filp->f_path.dentry, NULL);
+     if (tmp_filp) {
+		printk("closing tmp_filp\n");
+        filp_close(tmp_filp, NULL);
+	  }
+
+free_filename:
+	if (temp_filename) {
+		printk("freeing tmp_filename\n");
+		kfree(temp_filename);
+	}
 free_struct_pattern:
 	if ((p_struct) && (p_struct->pattern))
 		kfree(p_struct->pattern);
@@ -212,6 +272,7 @@ free_patbuf:
 	if (pat_buf)
 		kfree(pat_buf);
 out:
+	printk("Exiting ioctl with err: %lu\n", err);
 	return err;
 }
 

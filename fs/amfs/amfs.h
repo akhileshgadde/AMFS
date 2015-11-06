@@ -32,6 +32,9 @@
 /* the file system name */
 #define AMFS_NAME "amfs"
 
+/*temp file length add on */
+#define TEMP_FILE_ADD 4 
+
 /* amfs root inode number */
 #define AMFS_ROOT_INO     1
 
