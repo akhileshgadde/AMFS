@@ -17,21 +17,46 @@ static ssize_t amfs_read(struct file *file, char __user *buf,
 			   size_t count, loff_t *ppos)
 {
 	int err;
+	ssize_t bytes = 0;
+	struct super_block *sb;
+	//struct amfs_sb_info *sb_info;
+	char *state = "user.state";
 	struct file *lower_file;
 	struct dentry *dentry = file->f_path.dentry;
 	
 	lower_file = amfs_lower_file(file);
 	err = vfs_read(lower_file, buf, count, ppos);
-	
+	if (err < 0) {
+		printk("VFS_READ from lower file failed\n");
+		goto out;
+	}
+	else
+		bytes = err;
+	sb = amfs_get_super(file);
+	//sb_info = amfs_get_fs_info(sb);
+	printk("amfs_read: Head : %p\n", AMFS_SB(sb)->head);
 	/* code to check if buffer contains any bad patterns */
-	
+	err = check_pattern_in_buf(buf, AMFS_SB(sb)->head); /* o if not found, -1 if found/no pattern database */
+	if (err != 0) {
+		printk("Read: Pattern found in database\n");
+		/* set xattr and flush to disk */
+		if ((err = dentry->d_inode->i_op->setxattr(dentry,state, "Bad", 3, 0)) != 0)
+			printk("Setting Xattr for file failed\n");
+		else
+			printk("READ: Set xttar successfully\n");
+		err = -EACCES;
+		goto out;
+	}
 	
 	/* update our inode atime upon a successful lower read */
 	if (err >= 0)
 		fsstack_copy_attr_atime(dentry->d_inode,
 					file_inode(lower_file));
-
-	return err;
+out:
+	if (err < 0)
+		return err;
+	else
+		return bytes;
 }
 
 static ssize_t amfs_write(struct file *file, const char __user *buf,
@@ -373,6 +398,7 @@ static int amfs_open(struct inode *inode, struct file *file)
 	else
 		fsstack_copy_attr_all(inode, amfs_lower_inode(inode));
 out_err:
+	printk("Returning from AMFS_OPEN with err: %d\n", err);
 	return err;
 }
 

@@ -1,6 +1,7 @@
 #include "pattern_io.h"
 #include "amfs.h"
 #include "l_list.h"
+//#include <linux/string.h>
 
 int amfs_parse_options(char *data, char **file_name)
 {
@@ -106,6 +107,32 @@ long write_to_pat_file(struct file *filp, struct ListNode *head)
 out:
 	return rc;
 }
+
+/* Check if the buffer contains any of the malware patterns */
+int check_pattern_in_buf(const char *buf, struct ListNode *head)
+{
+	int rc = 0;
+	char *token = NULL;
+	struct ListNode *temp = head;
+	if (head == NULL) {
+		printk("check_pattern: Head is NULL\n");
+		rc = -1;
+		goto out;
+	}
+	while (temp != NULL) {
+		printk("Comparing with pat: %s\n", temp->pattern);
+		token = strstr(buf, temp->pattern);
+		if (token != NULL) {
+			printk("Found pattern %s in buf %s\n", temp->pattern, buf);
+			rc = -1; /* Found */
+			goto out;
+		}
+		temp = temp->next;		
+	}
+out:	
+	return rc;
+}
+
 
 /* 
 *       Write data to the file given by the File structure and return the # of bytes read

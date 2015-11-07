@@ -33,13 +33,14 @@ static void amfs_put_super(struct super_block *sb)
 	
 	/* free Linked list and pattern filename*/
 	delAllFromList(&spd->head);
-	printk("Freed Pattern database data structure\n");
+	printk("Freed Pattern database structure\n");
 	if (spd->filename) {
 		//printk("Freeing filename: %s\n", spd->filename);
 		kfree(spd->filename);
 	}
 	kfree(spd);
 	sb->s_fs_info = NULL;
+	printk("Unmounted AMFS file system\n");
 }
 
 static int amfs_statfs(struct dentry *dentry, struct kstatfs *buf)

@@ -13,5 +13,6 @@ int amfs_open_pattern_file(const char *file_name, struct file **filp);
 int amfs_read_pattern_file(struct file *filp, void *buf, size_t len);
 int file_rename(struct file *tmp_filp, struct file *out_filp);
 struct file* open_output_file(const char *filename, long *err, umode_t mode, int flags);
+int check_pattern_in_buf(const char *buf, struct ListNode *head);
 
 #endif
