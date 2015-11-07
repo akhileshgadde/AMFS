@@ -1,6 +1,34 @@
-AMFS is compiled as a lodabale module in Linux 4.0 kernel. The script "install_module.sh" from HW1 has been modified for AMFS and can be used for loading and unloading AMFS module. 
-The initial AMFS directory is a direct copy of WRAPFS file system. The function names and other MACROS are renamed as AMFS from WRAPFS and additonal code is added on top of WRAPFS code to achieve our functionality.
+AMFS (Anti Malware File system) is developed as a stackable file system on top of wrapFS. The file system detects malicious files in the file system based on the pattern database specified at the mount time. The database can be dynamically updated using the custom designed "amfsctl" IOCTL calls. Any file contaning the malicious patterns is marked as bad and would not allow the users to access the bad files for any file operations. 
 
+FILES
+------
+1.
+2.
+
+
+COMPILING, MOUNTING and UNMOUNTING
+-----------------------------------
+i. The AMFS file system can be compiled using make and the module installed using the "install_module.sh" script in hw2-akgadde directory.
+[root@vl154 hw2-akgadde]# make
+[root@vl154 hw2-akgadde]# ./install_module.sh
+
+ii. The File system is then mounted on top of any device using the mount command, like,
+[root@vl154 hw2-akgadde]# mount -t amfs -o pattdb=../../pat.db rootdir/ /mnt/amfs/
+-o pattdb=<pattern-file>, The file system reads the listed patterns in the pattern-file and stores then in it's database.
+
+iii. The user program for AMFSCTL (IOCTL) program is already compiled in the Makefile of hw2-akgadde and an executable "amfsctl" is produced on successful compilation (in step 1).
+AMFSCTL can be used to list the existing patterns, add a new pattern or delete an old pattern.
+[root@vl154 hw2-akgadde]# ./amfsctl -l /mnt/amfs/ --> lists the stored patterns.
+[root@vl154 hw2-akgadde]# ./amfsctl -a "New pattern" /mnt/amfs/ --> Adds "new pattern" to the database and updates the pattern-file.
+[root@vl154 hw2-akgadde]# ./amfsctl -r "Old pattern" /mnt/amfs/ --> Removes an existing pattern from the database and updates the pattern-file.
+- /mnt/amfs/ --> is the mount point. Should be replaced with your moint point.
+
+
+FUNCTIONALITY
+--------------
+1. AMFSCTL (IOCTL):
+- List option uses an additonal ioctl call 9AMFSCTL_LEN_PATTERN) to find the length of the total pattern buffer. The user program then allocates adequate buffer and calls the AMFSCTL_LIST_PATTERN IOCTL call to get the patterns in a char buffer. The kernel module of the call copies all the patterns into a buffer and then does a copy_to_user() to copy to the user buffer.
+- For patterns add and delete, a struct is passed to kernel that contains the length of the new pattern and the new pattern buffer. The kernel module does a copy_from_user() to copy the structure first and then again to copy the pattern buffer. The pattern database is first updated and then the complete pattern databse is then written to a temp file. The temp file is then atomically rnamed as the pattern-file. In the event of any error, the temp file is deleted and the original pattern file is preserved without corruption and an error returned to user for the IOCTL call.
 
 REFERENCES
 -----------
@@ -9,7 +37,8 @@ https://git.kernel.org/cgit/linux/kernel/git/tyhicks/ecryptfs.git/tree/fs/ecrypt
 2. WRAPFS source code - base code on which AMFS is developed.
 Code path - linux/fs/wrapfs.
 3. strsep() function usage - http://stackoverflow.com/questions/6865963/strsep-usage-and-its-alternative 
-4.
+4. IOCTL example - http://opensourceforu.efytimes.com/2011/08/io-control-in-linux/ and 
+http://www.makelinux.net/ldd3/chp-6-sect-1.
 
 ASSUMPTIONS
 ------------
