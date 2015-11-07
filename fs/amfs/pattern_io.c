@@ -123,8 +123,8 @@ int write_output_file(struct file *filp, void *buf, unsigned int size)
     oldfs = get_fs();
     set_fs(KERNEL_DS);
     bytes = vfs_write(filp, buf, size, &filp->f_pos);
-	//vfs_write(filp, "\n", 1, &filp->f_pos);
-	//bytes += 1;
+	vfs_write(filp, "\n", 1, &filp->f_pos);
+	bytes += 1;
     set_fs(oldfs);
     printk("KERN: Write to file: buytes: %d\n", bytes);
     return bytes;
@@ -145,11 +145,15 @@ struct file* open_output_file(const char *filename, long *err, umode_t mode, int
     }
     printk("Opening file: %s\n", filename);
     if (flags == 0) /* opening temp file */{
-        filp = filp_open(filename, O_WRONLY | O_CREAT | O_TRUNC, mode);
+		printk("opening temp file\n");
+        filp = filp_open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0);
     }
-    else  /* opening output file */
-        filp = filp_open(filename, O_WRONLY | O_CREAT, mode);
-    if (!filp) {
+    else if (flags == 1) { /* opening output file */
+		printk("Opening output file\n");
+        filp = filp_open(filename, O_WRONLY, 0);
+    }
+	if (!filp) {
+		printk("Filp null\n");
         if ((*err = amfs_check_pattern_file(filp)) != 0)
                 goto returnFailure;
     }
@@ -198,7 +202,7 @@ int file_rename(struct file *tmp_filp, struct file *out_filp)
        printk("Rename succeeded\n");
 		// goto end;
 unlinkoutputfile:
-    vfs_unlink(tmp_filp->f_path.dentry->d_parent->d_inode, tmp_filp->f_path.dentry, NULL);
+    //vfs_unlink(tmp_filp->f_path.dentry->d_parent->d_inode, tmp_filp->f_path.dentry, NULL);
 end:
 	printk("Exiting file_rename with err: %d\n", err);
     return err;

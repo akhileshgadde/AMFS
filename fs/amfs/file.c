@@ -71,8 +71,8 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 {
 	long err = 0;
 	int handle_flag = 0;
+	int add_flag = 0, del_flag = 0;
 	struct pat_struct *p_struct = NULL;
-	mode_t tmp_mode;
 	char *pat_buf = NULL;
 	struct file *lower_file;
 	struct file *tmp_filp = NULL, *out_filp = NULL;
@@ -127,97 +127,13 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 
         case AMFSCTL_ADD_PATTERN:
 			handle_flag = 1;
-			p_struct = (	struct pat_struct *) kmalloc(sizeof (struct pat_struct), GFP_KERNEL);
-			if (!p_struct) {
-				err = -ENOMEM;
-				goto out;
-			}
-			if (copy_from_user(p_struct, (struct pat_struct *) arg, sizeof (struct pat_struct))) {
-				printk("Copy_from_user failed for p_struct\n");
-				err = -EACCES;
-				goto free_pat_struct;
-			}
-			p_struct->pattern = NULL;
-			printk("Size after copying to ker_buf: %u\n", p_struct->size);
-			p_struct->pattern = (char *) kmalloc(p_struct->size + 1, GFP_KERNEL);
-            if (!p_struct->pattern) {
-				err = -ENOMEM;
-				goto free_pat_struct;
-			}
-			if (copy_from_user(p_struct->pattern, STRUCT_PAT(arg), p_struct->size)) {
-				err = -EACCES;
-				goto free_struct_pattern;
-			}
-			if ((err = addtoList(&sb_info->head, p_struct->pattern, p_struct->size)) != 0)
-				goto free_struct_pattern;
-
+			add_flag = 1;
 			/* writing pattern db to tmp file and then rename to original filename */
-			temp_filename = (char *) kmalloc(strlen(sb_info->filename) + 4, GFP_KERNEL);
-			if (!temp_filename) {
-				err = -ENOMEM;
-				goto free_struct_pattern;
-			}
-			strcpy(temp_filename, sb_info->filename);
-		    strcat(temp_filename, ".tmp");
-			tmp_mode = S_IWUSR | S_IRUSR;
-			tmp_filp = open_output_file(temp_filename, &err, tmp_mode, 0);
-	 		if (!tmp_filp) {
-    		    if (err == -EACCES)
-            		goto closeTmpFile;
-        		else
-            		goto free_filename;
-    		}
-			err = write_to_pat_file(tmp_filp, sb_info->head);
-			if (err != 0) {
-				err = -EACCES;
-				goto closeTmpFile;
-			}
-			out_filp = open_output_file(sb_info->filename, &err, tmp_mode, 1);
-			if (!out_filp) {
-				printk("out_filp error\n");
-				if (err == -EACCES)
-	            	goto closeOutputFile;
-    	    	else
-            		goto closeTmpFile;
-    		}
-			err = file_rename(tmp_filp, out_filp);
-			if (err != 0) {
-				printk("Rename failed\n");
-				err = -EACCES;
-			}
-			else
-				printk("ioctl: rename successful\n");
-			printList(&sb_info->head); 
-			goto closeOutputFile;
 			break;
  
        case AMFSCTL_DEL_PATTERN:
 			handle_flag = 1;
-			 p_struct = (    struct pat_struct *) kmalloc(sizeof (struct pat_struct), GFP_KERNEL);
-            if (!p_struct) {
-                err = -ENOMEM;
-                goto out;
-            }
-            if (copy_from_user(p_struct, (struct pat_struct *) arg, sizeof (struct pat_struct))) {
-                printk("Copy_from_user failed for p_struct\n");
-                err = -EACCES;
-                goto free_pat_struct;
-            }
-            p_struct->pattern = NULL;
-            printk("Size after copying to ker_buf: %u\n", p_struct->size);
-            p_struct->pattern = (char *) kmalloc(p_struct->size + 1, GFP_KERNEL);
-            if (!p_struct->pattern) {
-                err = -ENOMEM;
-                goto free_pat_struct;
-            }
-            if (copy_from_user(p_struct->pattern, STRUCT_PAT(arg), p_struct->size)) {
-                err = -EACCES;
-                goto free_struct_pattern;
-            }
-			if ((err = deletePatternInList(&sb_info->head, p_struct->pattern, p_struct->size)) != 0)
-                goto free_struct_pattern;
-			printk("After deleting\n");
-            printList(&sb_info->head);
+			del_flag = 1;
             break;
         case AMFSCTL_LEN_PATTERN:
 			/* add check for the pointers not null in case FS is not mounted */
@@ -230,6 +146,77 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
             }
             break;
 	}
+
+	if ((handle_flag) && (add_flag || del_flag)) {
+		p_struct = (struct pat_struct *) kmalloc(sizeof (struct pat_struct), GFP_KERNEL);
+		if (!p_struct) {
+			err = -ENOMEM;
+			goto out;
+		}
+		if (copy_from_user(p_struct, (struct pat_struct *) arg, sizeof (struct pat_struct))) {
+			printk("Copy_from_user failed for p_struct\n");
+			err = -EACCES;
+			goto free_pat_struct;
+		}
+		p_struct->pattern = NULL;
+		printk("Size after copying to ker_buf: %u\n", p_struct->size);
+		p_struct->pattern = (char *) kmalloc(p_struct->size + 1, GFP_KERNEL);
+		if (!p_struct->pattern) {
+			err = -ENOMEM;
+			goto free_pat_struct;
+		}
+		if (copy_from_user(p_struct->pattern, STRUCT_PAT(arg), p_struct->size)) {
+			err = -EACCES;
+			goto free_struct_pattern;
+		}
+		if (add_flag) {
+			if ((err = addtoList(&sb_info->head, p_struct->pattern, p_struct->size)) != 0)
+ 	       		goto free_struct_pattern;
+		}
+		else if (del_flag) {
+			if ((err = deletePatternInList(&sb_info->head, p_struct->pattern, p_struct->size)) != 0)
+        		goto free_struct_pattern;
+		}
+	
+		temp_filename = (char *) kmalloc(strlen(sb_info->filename) + 4, GFP_KERNEL);
+		if (!temp_filename) {
+			err = -ENOMEM;
+			goto free_struct_pattern;
+		}
+		strcpy(temp_filename, sb_info->filename);
+		strcat(temp_filename, ".tmp");
+		tmp_filp = open_output_file(temp_filename, &err, 0, 0);
+		if (!tmp_filp) {
+			if (err == -EACCES)
+				goto closeTmpFile;
+			else
+				goto free_filename;
+		}
+		err = write_to_pat_file(tmp_filp, sb_info->head);
+		if (err != 0) {
+			printk("Writing to temp file failed\n");
+			err = -EACCES;
+			goto closeTmpFile;
+		}
+		out_filp = open_output_file(sb_info->filename, &err, 0, 1);
+		if (!out_filp) {
+			printk("out_filp error\n");
+			if (err == -EACCES)
+				goto closeOutputFile;
+			else
+				goto closeTmpFile;
+		}
+		err = file_rename(tmp_filp, out_filp);
+		if (err != 0) {
+			printk("Rename failed\n");
+			err = -EACCES;
+		}
+		else
+			printk("ioctl: rename successful\n");
+		printList(&sb_info->head); 
+		goto closeOutputFile;
+	}
+
 	if (!handle_flag) {
 		lower_file = amfs_lower_file(file);
 
@@ -251,7 +238,8 @@ closeOutputFile:
 	}
 
 closeTmpFile:
-     //vfs_unlink(tmp_filp->f_path.dentry->d_parent->d_inode, tmp_filp->f_path.dentry, NULL);
+    if (err != 0) 
+		vfs_unlink(tmp_filp->f_path.dentry->d_parent->d_inode, tmp_filp->f_path.dentry, NULL);
      if (tmp_filp) {
 		printk("closing tmp_filp\n");
         filp_close(tmp_filp, NULL);

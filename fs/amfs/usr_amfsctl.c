@@ -100,7 +100,7 @@ int add_to_patdb(int fd, char *pat_buf)
 		goto out;
 	}
 	else
-		printf("Successfully added %s to the database\n", pat_buf);
+		printf("Successfully added \"%s\" to the database\n", pat_buf);
 out:
 	return rc;
 }
@@ -128,7 +128,7 @@ int del_from_patdb(int fd, char *pat_buf)
 		goto out;
 	}
 	else
-		printf("Successfully deleted %s to the database\n", pat_buf);
+		printf("Successfully deleted \"%s\" from the database\n", pat_buf);
 out:
 	return rc;
 }
