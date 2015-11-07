@@ -54,17 +54,17 @@ static int amfs_read_super(struct super_block *sb, void *raw_data, int silent)
 	lower_sb = lower_path.dentry->d_sb;
 	atomic_inc(&lower_sb->s_active);
 	amfs_set_lower_super(sb, lower_sb);
+	
 	AMFS_SB(sb)->filename = (char *) kmalloc(strlen(filename) + 1, GFP_KERNEL);
 	if (!AMFS_SB(sb)->filename) {
 		err = -ENOMEM;
 		goto out_free;
 	}
 	strcpy(AMFS_SB(sb)->filename, filename);
-	printk("SUPER: filename: %s\n", (AMFS_SB(sb)->filename));	
-	printk("SUPER: Head from sb_pr->head: %p\n", head);
+	//printk("SUPER: filename: %s\n", (AMFS_SB(sb)->filename));	
+	//printk("SUPER: Head from sb_pr->head: %p\n", head);
 	AMFS_SB(sb)->head = head;
-	//amfs_set_sb_private(sb, sb_pr);
-	//amfs_set_sb_ll_head(AMFS_SB(sb)->amfs_sb_pr, sb_pr->head);
+	
 	/* inherit maxbytes from lower file system */
 	sb->s_maxbytes = lower_sb->s_maxbytes;
 
@@ -135,16 +135,13 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 {
 	int rc = 0;
 	int bytes_read;
-	//char *file_name;
-	//long long p_size;
 	struct file *filp;
 	char *pat;
 	char *page_buf;
-	//char *dup_page_buf;
 	void *lower_path_name = (void *) dev_name;
 	if ((rc = amfs_parse_options(raw_data, &filename)) != 0)
 		goto out;
-	printk("KERN_AMFS_MOUNT: File_name: %s, len: %d\n", filename, strlen(filename));
+	//printk("KERN_AMFS_MOUNT: File_name: %s, len: %d\n", filename, strlen(filename));
 	if ((rc = amfs_open_pattern_file(filename, &filp)) != 0)
 		goto out;
 	page_buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
@@ -153,23 +150,8 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 		goto closefile;
 	}
 	memset(page_buf, 0, PAGE_SIZE);
-	#if 0
-	sb_pr = (struct amfs_sb_private *) kzalloc(sizeof(struct amfs_sb_private), GFP_KERNEL);
-	if (!sb_pr) {
-		rc = -ENOMEM;
-		goto free_page_buf;
-	}
-	sb_pr->filename = (char *) kmalloc(strlen(file_name) + 1, GFP_KERNEL);
-	if (!sb_pr->filename) {
-		rc = -ENOMEM;
-		goto free_sb_private_data;
-	}
-	#endif
-	//printk("AMFS_MOUNT: sb_pr: %p\n", sb_pr);
-	//strcpy(sb_pr->filename, file_name);
-	//sb_pr->filename[strlen(file_name)] = '\0';
 	head = NULL;
-	printk("KERN_AMFS: Filename in ab_amfs_priv: %s\n", filename);
+	//printk("KERN_AMFS: Filename in ab_amfs_priv: %s\n", filename);
 	while ((bytes_read = amfs_read_pattern_file(filp, page_buf, PAGE_SIZE)) > 0)
 	{
 		memset(page_buf+bytes_read, 0, PAGE_SIZE - bytes_read);
@@ -182,14 +164,13 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 			else {
 				if ((rc = addtoList(&head, pat, strlen(pat))) != 0)
 					goto free_filename;
-				//printk("KERN_AMFS: line after strsep(): %s, len: %zu\n", pat, strlen(pat));
 			}
 			
 		}
 	}
-	printk("AMFS_MOUNT: Head of LL: %p\n", head);
-	printk("KERN_AMFS: Printing patterns after storing in prov_data:\n");
-	printList(&head);
+//	printk("AMFS_MOUNT: Head of LL: %p\n", head);
+//	printk("KERN_AMFS: Printing patterns after storing in prov_data:\n");
+//	printList(&head);
 	/* need to move this delete to umount/kill */
 	//delAllFromList(&(sb_pr->head));	
 	goto out;

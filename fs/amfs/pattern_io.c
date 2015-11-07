@@ -30,7 +30,6 @@ out:
 int amfs_check_pattern_file(struct file *filp)
 {
     int ret = 0;
-    //printk("KERN: Checking File is regular\n");
     if (S_ISDIR(filp->f_path.dentry->d_inode->i_mode)) {
         ret = -EISDIR;
         goto end;
@@ -47,7 +46,6 @@ end:
 int amfs_open_pattern_file(const char *file_name, struct file **filp)
 {
     int rc = 0;
-    //*filp = NULL;
     if (file_name == NULL) {
         rc = -ENOENT;
         goto out;
@@ -61,14 +59,12 @@ int amfs_open_pattern_file(const char *file_name, struct file **filp)
     }
     if ((rc = amfs_check_pattern_file(*filp)) != 0)
         goto out;
-    #if 1 
     if ((!(*filp)->f_op) || (!(*filp)->f_op->read)) {
         printk("KERNEL_AMFS: No read permission on pattern file\n");
         rc = -EACCES;
         goto out;
     }
     (*filp)->f_pos = 0;
-    #endif
 out:
     return rc;
 }
@@ -86,7 +82,7 @@ int amfs_read_pattern_file(struct file *filp, void *buf, size_t len)
     set_fs(KERNEL_DS);
     bytes = vfs_read(filp, buf, len, &filp->f_pos);
     set_fs(oldfs);
-    printk("KERN_AMFS: Read file: Bytes: %d\n", bytes);
+    //printk("KERN_AMFS: Read file: Bytes: %d\n", bytes);
     return bytes;
 }
 
@@ -126,7 +122,7 @@ int write_output_file(struct file *filp, void *buf, unsigned int size)
 	vfs_write(filp, "\n", 1, &filp->f_pos);
 	bytes += 1;
     set_fs(oldfs);
-    printk("KERN: Write to file: buytes: %d\n", bytes);
+    //printk("KERN: Write to file: bytes: %d\n", bytes);
     return bytes;
 }
 
@@ -138,22 +134,20 @@ int write_output_file(struct file *filp, void *buf, unsigned int size)
 struct file* open_output_file(const char *filename, long *err, umode_t mode, int flags)
 {
     struct file *filp = NULL;
-    printk("KERN: Inside open output file\n");
     if (filename == NULL) {
         *err = -EBADF;
         goto returnFailure;
     }
     printk("Opening file: %s\n", filename);
     if (flags == 0) /* opening temp file */{
-		printk("opening temp file\n");
+		//printk("opening temp file\n");
         filp = filp_open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0);
     }
     else if (flags == 1) { /* opening output file */
-		printk("Opening output file\n");
+		//printk("Opening output file\n");
         filp = filp_open(filename, O_WRONLY, 0);
     }
 	if (!filp) {
-		printk("Filp null\n");
         if ((*err = amfs_check_pattern_file(filp)) != 0)
                 goto returnFailure;
     }
@@ -186,7 +180,6 @@ int file_rename(struct file *tmp_filp, struct file *out_filp)
         err = -EINVAL;
         goto end;
     }
-    printk("Inside file rename\n");
 	if (tmp_filp->f_path.dentry->d_inode->i_ino == out_filp->f_path.dentry->d_inode->i_ino) {
     	err = -EPERM;
 		printk("ERROR: Both filenames are same\n");
@@ -197,12 +190,8 @@ int file_rename(struct file *tmp_filp, struct file *out_filp)
     if (err != 0) {
         printk("KERN: File rename error\n");
         err = -EACCES;
-        goto unlinkoutputfile;
-    } else
-       printk("Rename succeeded\n");
-		// goto end;
-unlinkoutputfile:
-    //vfs_unlink(tmp_filp->f_path.dentry->d_parent->d_inode, tmp_filp->f_path.dentry, NULL);
+        goto end;
+    }
 end:
 	printk("Exiting file_rename with err: %d\n", err);
     return err;

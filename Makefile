@@ -607,7 +607,10 @@ endif # $(dot-config)
 # command line.
 # This allow a user to issue only 'make' to build a kernel including modules
 # Defaults to vmlinux, but the arch makefile usually adds further targets
-all: vmlinux
+all: vmlinux amfsctl
+
+amfsctl: usr_amfsctl.c
+	gcc -Wall -Werror -I$(INC)/generated/uapi -I$(INC)/uapi usr_amfsctl.c -o amfsctl
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
 

@@ -1,4 +1,4 @@
-#include "amfsctl.h"
+#include "fs/amfs/amfsctl.h"
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -33,7 +33,7 @@ int main(int argc, char **argv)
 		goto out;
 	}
 	rc = readargs(argc, argv);
-	printf("main: Pattern: %s, mount point: %s\n", pat_buf, mnt_pt);
+	//printf("Pattern: %s, mount point: %s\n", pat_buf, mnt_pt);
 	if (rc != 0) {
 		print_usage();
 		rc = -1;
@@ -46,7 +46,7 @@ int main(int argc, char **argv)
 		goto free_buf;
 	}
 	if (list_flag) {
-		printf("List flag set, calling\n");
+		//printf("List flag set, calling\n");
 		rc = get_pattern_db(fd);
 	}
 	else if (add_flag) {
@@ -61,14 +61,12 @@ int main(int argc, char **argv)
 	}
 
 free_buf:
-	#if 1
 	if (p_struct)
 		free(p_struct);
 	if (mnt_pt)
 		free(mnt_pt);
 	if (pat_buf)
 		free(pat_buf);
-	#endif
 out:
 	if (fd > 0)
 		close(fd);
@@ -79,7 +77,6 @@ out:
 int add_to_patdb(int fd, char *pat_buf)
 {
 	int rc = 0;
-	printf("in add_to_patdb\n");
 	struct pat_struct *p_struct;
 	p_struct = (struct pat_struct *) malloc(sizeof (struct pat_struct));
 	if (!p_struct) {
@@ -135,14 +132,7 @@ out:
 
 void print_pattern_db(char *buf, unsigned long size)
 {
-	//int i = 0;
-	printf("pattern database:\n");
-	#if 0
-	while (i < size) {
-		printf("%c", buf[i]);
-		i++;
-	}
-	#endif
+	printf("Pattern database:\n");
 	printf("%s", buf);
 }
 
@@ -177,9 +167,6 @@ unsigned long get_pattern_count(int fd)
 		count = -1;
 		goto out;
 	}
-	else {
-		printf("AMFSCTL_LEN: %lu\n", count);
-	}
 out:
 	return count;
 }
@@ -192,7 +179,6 @@ int copy_args(char **buf, char *optarg)
     	rc = -ENOMEM;
         goto out;
     }
-	printf("In copy_args\n");
     strcpy(*buf, optarg);
     (*buf)[strlen(optarg)] = '\0';
 out:
@@ -211,7 +197,6 @@ int readargs(int argc, char **argv)
 				list_flag = 1;	
 				break;
 			case 'a':
-				printf("Setting add_flag\n");
 				add_flag = 1; 
 				rc = copy_args(&pat_buf, optarg);
 				if (rc != 0)
@@ -235,10 +220,10 @@ int readargs(int argc, char **argv)
 		mnt_pt_flag = 1;
 		optind++;
 	}
-	printf("optind: %d, argc: %d\n",optind, argc);
+	//printf("optind: %d, argc: %d\n",optind, argc);
 	if ((optind != argc) || (mnt_pt_flag == 0)) {
 		rc = -1;
-		printf("mnt_pt not given, freeing \n");
+		printf("mnt_pt not specified, freeing \n");
 		goto out;
 	}
 	goto out;

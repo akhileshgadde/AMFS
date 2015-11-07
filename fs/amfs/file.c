@@ -99,10 +99,7 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
     }
 
     sb = amfs_get_super(file);
-	printk("IOCTL: sb: %p\n", sb);
     sb_info = amfs_get_fs_info(sb);
-	printk("IOCTL: sb_info: %p\n", sb_info);
-	printk("ioctl: Head: %p\n", sb_info->head);
 	size = get_patterndb_len(sb_info->head);
 
 	switch(cmd)
@@ -114,7 +111,6 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 				err = -ENOMEM;
 				goto out;
 			}
-			printk("ioctl: copying pattern db\n");
 			copy_pattern_db(sb_info->head, pat_buf, size);
 			//printk("pattern Db after copying to buf:\n");
 			//print_pattern_db(pat_buf, size);
@@ -138,7 +134,6 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
         case AMFSCTL_LEN_PATTERN:
 			/* add check for the pointers not null in case FS is not mounted */
 			handle_flag = 1;
-			printk("pattern_len: Size: %lu\n", size);	
             if (copy_to_user((unsigned long *) arg, &size, sizeof(size))) {
 				printk("IOCTL_ERR: Copy_to_user error\n");
                 err = -EACCES;
@@ -159,7 +154,7 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			goto free_pat_struct;
 		}
 		p_struct->pattern = NULL;
-		printk("Size after copying to ker_buf: %u\n", p_struct->size);
+		//printk("Size after copying to ker_buf: %u\n", p_struct->size);
 		p_struct->pattern = (char *) kmalloc(p_struct->size + 1, GFP_KERNEL);
 		if (!p_struct->pattern) {
 			err = -ENOMEM;
@@ -211,9 +206,7 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			printk("Rename failed\n");
 			err = -EACCES;
 		}
-		else
-			printk("ioctl: rename successful\n");
-		printList(&sb_info->head); 
+		//printList(&sb_info->head); 
 		goto closeOutputFile;
 	}
 
@@ -232,24 +225,18 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 					      file_inode(lower_file));
 	}
 closeOutputFile:
-	if (out_filp) {
-		printk("closing out_filp\n");
+	if (out_filp)
         filp_close(out_filp, NULL);
-	}
 
 closeTmpFile:
     if (err != 0) 
 		vfs_unlink(tmp_filp->f_path.dentry->d_parent->d_inode, tmp_filp->f_path.dentry, NULL);
-     if (tmp_filp) {
-		printk("closing tmp_filp\n");
+     if (tmp_filp)
         filp_close(tmp_filp, NULL);
-	  }
 
 free_filename:
-	if (temp_filename) {
-		printk("freeing tmp_filename\n");
+	if (temp_filename)
 		kfree(temp_filename);
-	}
 free_struct_pattern:
 	if ((p_struct) && (p_struct->pattern))
 		kfree(p_struct->pattern);
@@ -260,7 +247,6 @@ free_patbuf:
 	if (pat_buf)
 		kfree(pat_buf);
 out:
-	printk("Exiting ioctl with err: %lu\n", err);
 	return err;
 }
 
