@@ -43,4 +43,6 @@ http://www.makelinux.net/ldd3/chp-6-sect-1.
 ASSUMPTIONS
 ------------
 1. Each pattern size is a maximum of 4096 bytes. The pattern can be present in one or two pages but the siz eof each pattern doesn't exceed 4096 bytes.
-2.  
+2. Also, assumed that all the patterns are strings/ASCII characters.
+3. The pattern database can be sepcified as relative/absolute path. The internal structure doesn't store the full path from the root directory and just stores the path given at the time of mount. Incase, you try to mount by giving a relative path from one location and run amfsctl calls from another location, the write would fail since the file create would take a path from the current location of AMFSCTL call.
+4.  

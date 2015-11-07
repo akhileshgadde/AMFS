@@ -193,6 +193,5 @@ int file_rename(struct file *tmp_filp, struct file *out_filp)
         goto end;
     }
 end:
-	printk("Exiting file_rename with err: %d\n", err);
     return err;
 }

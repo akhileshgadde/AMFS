@@ -32,10 +32,10 @@ static void amfs_put_super(struct super_block *sb)
 	atomic_dec(&s->s_active);
 	
 	/* free Linked list and pattern filename*/
-	printk("Freeing Linked list DS\n");
 	delAllFromList(&spd->head);
+	printk("Freed Pattern database data structure\n");
 	if (spd->filename) {
-		printk("Freeing filename: %s\n", spd->filename);
+		//printk("Freeing filename: %s\n", spd->filename);
 		kfree(spd->filename);
 	}
 	kfree(spd);

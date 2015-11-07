@@ -69,7 +69,7 @@ void copy_pattern_db(struct ListNode *head, char *buf, unsigned long size)
 		size -= (temp->len + 1);
 		temp = temp->next;	
 	}
-	//buf[size] = '\0';
+	buf[offset] = '\0';
 }
 
 void print_pattern_db(char *buf, unsigned long size)

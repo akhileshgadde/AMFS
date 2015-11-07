@@ -11,6 +11,7 @@
 #include "amfs.h"
 #include "amfsctl.h"
 #include "pattern_io.h"
+#include "l_list.h"
 
 static ssize_t amfs_read(struct file *file, char __user *buf,
 			   size_t count, loff_t *ppos)
@@ -18,9 +19,13 @@ static ssize_t amfs_read(struct file *file, char __user *buf,
 	int err;
 	struct file *lower_file;
 	struct dentry *dentry = file->f_path.dentry;
-
+	
 	lower_file = amfs_lower_file(file);
 	err = vfs_read(lower_file, buf, count, ppos);
+	
+	/* code to check if buffer contains any bad patterns */
+	
+	
 	/* update our inode atime upon a successful lower read */
 	if (err >= 0)
 		fsstack_copy_attr_atime(dentry->d_inode,
@@ -164,6 +169,8 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			err = -EACCES;
 			goto free_struct_pattern;
 		}
+		/* Adding NULL to pattern */
+		p_struct->pattern[p_struct->size] = '\0';
 		if (add_flag) {
 			if ((err = addtoList(&sb_info->head, p_struct->pattern, p_struct->size)) != 0)
  	       		goto free_struct_pattern;
