@@ -454,7 +454,7 @@ amfs_setxattr(struct dentry *dentry, const char *name, const void *value,
 {
 	int err; struct dentry *lower_dentry;
 	struct path lower_path;
-
+	printk("AMFS_SETATTR: func called\n");
 	amfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	if (!lower_dentry->d_inode->i_op ||
@@ -477,7 +477,7 @@ amfs_getxattr(struct dentry *dentry, const char *name, void *buffer,
 	int err;
 	struct dentry *lower_dentry;
 	struct path lower_path;
-
+	printk("AMFS_GETATTR: func called\n");
 	amfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	if (!lower_dentry->d_inode->i_op ||

@@ -38,7 +38,7 @@ static ssize_t amfs_read(struct file *file, char __user *buf,
 	if (err != 0) {
 		printk("Read: Pattern found in database\n");
 		/* set xattr and flush to disk */
-		err = dentry->d_inode->i_op->setxattr(dentry,AMFS_XTTAR_NAME, AMFS_XATTR_BAD, \
+		err = dentry->d_inode->i_op->setxattr(dentry,AMFS_XATTR_NAME, AMFS_XATTR_BAD, \
                         AMFS_XATTR_BAD_LEN, 0); 
         if (err != 0) 
 			printk("AMFS_READ: Setting Xattr failed\n");
@@ -75,7 +75,7 @@ static ssize_t amfs_write(struct file *file, const char __user *buf,
 	pat_check = check_pattern_in_buf(buf, AMFS_SB(sb)->head);
 	if (pat_check != 0) {
 		printk("AMFS_WRITE: Pattern found in file. Allowing write and setting xattr.\n");
-		err = dentry->d_inode->i_op->setxattr(dentry,AMFS_XTTAR_NAME, AMFS_XATTR_BAD, \
+		err = dentry->d_inode->i_op->setxattr(dentry,AMFS_XATTR_NAME, AMFS_XATTR_BAD, \
 						AMFS_XATTR_BAD_LEN, 0);
 		if (err != 0) {
 			err = -EPERM;
@@ -96,18 +96,65 @@ out:
 	return err;
 }
 
+
+struct amfs_getdents_callback {
+	struct dir_context ctx;
+	struct dir_context *caller;
+	struct super_block *sb;
+	//struct dentry *dent;
+	int filldir_called;
+	int entries_written;
+};
+
+/* Based on ecrypts_filldir in fs/ecryptfs/file.c */
+static int 
+amfs_filldir(struct dir_context *ctx, const char *lower_name,
+			 int lower_namelen, loff_t offset, u64 ino, unsigned int d_type)
+{
+	struct amfs_getdents_callback *buf = 
+			container_of(ctx, struct amfs_getdents_callback, ctx);
+	//size_t name_size;
+	//char *name;
+	int rc = 0;
+	
+	buf->filldir_called++;
+	/* code to be added here */
+	buf->caller->pos = buf->ctx.pos;
+	rc = !dir_emit(buf->caller, lower_name, lower_namelen, ino, d_type);
+	printk("AMFS_FILLDIR: name: %s\n", lower_name);
+	kfree(lower_name);
+	if (!rc)
+		buf->entries_written++;
+//out:
+	return rc;
+}
+
 static int amfs_readdir(struct file *file, struct dir_context *ctx)
 {
 	int err;
 	struct file *lower_file = NULL;
-	struct dentry *dentry = file->f_path.dentry;
-
+	struct inode *inode = file_inode(file);
+	//struct dentry *dentry = file->f_path.dentry;
+	struct amfs_getdents_callback buf = {
+		.ctx.actor = amfs_filldir,
+		.caller = ctx,
+		.sb = inode->i_sb,
+		//.dent = dentry,
+	};
+	
 	lower_file = amfs_lower_file(file);
-	err = iterate_dir(lower_file, ctx);
-	file->f_pos = lower_file->f_pos;
+	//err = iterate_dir(lower_file, ctx);
+	lower_file->f_pos = ctx->pos;
+	err = iterate_dir(lower_file, &buf.ctx);
+	ctx->pos = buf.ctx.pos;
+	if (err < 0)
+		goto out;
+	if (buf.filldir_called && !buf.entries_written)
+		goto out;
 	if (err >= 0)		/* copy the atime */
-		fsstack_copy_attr_atime(dentry->d_inode,
+		fsstack_copy_attr_atime(inode,
 					file_inode(lower_file));
+out:
 	return err;
 }
 
@@ -380,7 +427,8 @@ static int amfs_open(struct inode *inode, struct file *file)
 	int err = 0;
 	struct file *lower_file = NULL;
 	struct path lower_path;
-
+	//struct dentry *dentry = file->f_path.dentry;
+	
 	/* don't open unhashed/deleted files */
 	if (d_unhashed(file->f_path.dentry)) {
 		err = -ENOENT;
@@ -396,6 +444,22 @@ static int amfs_open(struct inode *inode, struct file *file)
 
 	/* open lower object and link amfs's file struct to lower's */
 	amfs_get_lower_path(file->f_path.dentry, &lower_path);
+	/* Checking if file xattr is bad and then not allowing open to happen if bad */
+	#if 0
+	//lower_file = amfs_lower_file(file);
+	//printk("Got lower file, getting it's d_entry\n");
+	//lower_dentry = lower_file->f_path.dentry;
+	if (lower_file != NULL)
+		printk("Lower_file not NULL\n");
+	
+	printk("Calling getxattr()\n");
+	err = dentry->d_inode->i_op->getxattr(dentry, AMFS_XATTR_NAME, \
+			AMFS_XATTR_BAD, AMFS_XATTR_BAD_LEN); 	
+	//if (err != 0) {
+		printk("AMFS_OPEN: Getxattr() return: %d\n", err);
+//	}
+//skip_getattr:
+#endif
 	lower_file = dentry_open(&lower_path, file->f_flags, current_cred());
 	path_put(&lower_path);
 	if (IS_ERR(lower_file)) {

@@ -36,9 +36,9 @@
 #define TEMP_FILE_ADD 4 
 
 /* Xattr defintions */
-#define AMFS_XTTAR_NAME "user.amfs"
+#define AMFS_XATTR_NAME "user.amfs"
 #define AMFS_XATTR_BAD "Bad"
-#define AMFS_XATTR_GOOF "Good"
+#define AMFS_XATTR_GOOD "Good"
 #define AMFS_XATTR_BAD_LEN 3
 #define AMFS_XATTR_GOOD_LEN 4
 
@@ -171,14 +171,10 @@ static inline void amfs_set_sb_private(struct super_block *sb,
 	AMFS_SB(sb)->head = sb_pr->head;
 }
 
-#if 0
-static inline void amfs_set_sb_ll_head(struct amfs_sb_private *sb_pr,
-					struct ListNode *head)
+static inline struct dentry *amfs_dentry_to_lower(struct dentry *dentry)
 {
-	sb_pr->head = head;
+	return ((struct amfs_dentry_info *)dentry->d_fsdata)->lower_path.dentry;
 }
-#endif
-
 /* Get the superblock of a file */
 static inline struct super_block *amfs_get_super(struct file *f)
 {
