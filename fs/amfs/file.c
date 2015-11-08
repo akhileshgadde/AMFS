@@ -427,7 +427,7 @@ static int amfs_open(struct inode *inode, struct file *file)
 	int err = 0;
 	struct file *lower_file = NULL;
 	struct path lower_path;
-	//struct dentry *dentry = file->f_path.dentry;
+	struct dentry *dentry = file->f_path.dentry;
 	
 	/* don't open unhashed/deleted files */
 	if (d_unhashed(file->f_path.dentry)) {
@@ -445,20 +445,30 @@ static int amfs_open(struct inode *inode, struct file *file)
 	/* open lower object and link amfs's file struct to lower's */
 	amfs_get_lower_path(file->f_path.dentry, &lower_path);
 	/* Checking if file xattr is bad and then not allowing open to happen if bad */
-	#if 0
+	
+	if(S_ISDIR(file->f_path.dentry->d_inode->i_mode)) {
+		printk("Opening a directory\n");
+		goto skip_getattr;
+	}
+	
+	#if 1
 	//lower_file = amfs_lower_file(file);
 	//printk("Got lower file, getting it's d_entry\n");
 	//lower_dentry = lower_file->f_path.dentry;
-	if (lower_file != NULL)
-		printk("Lower_file not NULL\n");
+	//if (lower_file != NULL)
+	//	printk("Lower_file not NULL\n");
 	
 	printk("Calling getxattr()\n");
 	err = dentry->d_inode->i_op->getxattr(dentry, AMFS_XATTR_NAME, \
 			AMFS_XATTR_BAD, AMFS_XATTR_BAD_LEN); 	
-	//if (err != 0) {
+	if (err > 0) {
 		printk("AMFS_OPEN: Getxattr() return: %d\n", err);
-//	}
-//skip_getattr:
+		err = -ENOENT;
+		goto out_err;
+	}
+	else
+		err = 0;
+skip_getattr:
 #endif
 	lower_file = dentry_open(&lower_path, file->f_flags, current_cred());
 	path_put(&lower_path);
