@@ -162,9 +162,9 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 				printk("KERN_AMFS: No new line char found in page_buf\n");
 			}
 			else {
-				printk("1:%c2:%c\n", *pat, *(pat+1));
+	//			printk("1:%c2:%c\n", *pat, *(pat+1));
 				if ((*pat == '\n') || (*pat == '\0')) {
-					printk("Going out\n");
+					//printk("Going out\n");
 					goto out;
 				}
 				if ((rc = addtoList(&head, pat, strlen(pat))) != 0)

@@ -35,6 +35,13 @@
 /*temp file length add on */
 #define TEMP_FILE_ADD 4 
 
+/* Xattr defintions */
+#define AMFS_XTTAR_NAME "user.amfs"
+#define AMFS_XATTR_BAD "Bad"
+#define AMFS_XATTR_GOOF "Good"
+#define AMFS_XATTR_BAD_LEN 3
+#define AMFS_XATTR_GOOD_LEN 4
+
 /* amfs root inode number */
 #define AMFS_ROOT_INO     1
 

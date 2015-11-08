@@ -19,8 +19,6 @@ static ssize_t amfs_read(struct file *file, char __user *buf,
 	int err;
 	ssize_t bytes = 0;
 	struct super_block *sb;
-	//struct amfs_sb_info *sb_info;
-	char *state = "user.state";
 	struct file *lower_file;
 	struct dentry *dentry = file->f_path.dentry;
 	
@@ -33,18 +31,20 @@ static ssize_t amfs_read(struct file *file, char __user *buf,
 	else
 		bytes = err;
 	sb = amfs_get_super(file);
-	//sb_info = amfs_get_fs_info(sb);
-	printk("amfs_read: Head : %p\n", AMFS_SB(sb)->head);
+	//printk("amfs_read: Head : %p\n", AMFS_SB(sb)->head);
+	
 	/* code to check if buffer contains any bad patterns */
 	err = check_pattern_in_buf(buf, AMFS_SB(sb)->head); /* o if not found, -1 if found/no pattern database */
 	if (err != 0) {
 		printk("Read: Pattern found in database\n");
 		/* set xattr and flush to disk */
-		if ((err = dentry->d_inode->i_op->setxattr(dentry,state, "Bad", 3, 0)) != 0)
-			printk("Setting Xattr for file failed\n");
+		err = dentry->d_inode->i_op->setxattr(dentry,AMFS_XTTAR_NAME, AMFS_XATTR_BAD, \
+                        AMFS_XATTR_BAD_LEN, 0); 
+        if (err != 0) 
+			printk("AMFS_READ: Setting Xattr failed\n");
 		else
 			printk("READ: Set xttar successfully\n");
-		err = -EACCES;
+		err = -EPERM;
 		goto out;
 	}
 	
@@ -63,11 +63,27 @@ static ssize_t amfs_write(struct file *file, const char __user *buf,
 			    size_t count, loff_t *ppos)
 {
 	int err;
-
+	int pat_check = 0;
+	struct super_block *sb;
 	struct file *lower_file;
 	struct dentry *dentry = file->f_path.dentry;
 
 	lower_file = amfs_lower_file(file);
+	/* code to check if malware exists in buffer and not allow write to happen */
+	sb = amfs_get_super(file);
+	printk("In AMFS_WRITE\n");
+	pat_check = check_pattern_in_buf(buf, AMFS_SB(sb)->head);
+	if (pat_check != 0) {
+		printk("AMFS_WRITE: Pattern found in file. Allowing write and setting xattr.\n");
+		err = dentry->d_inode->i_op->setxattr(dentry,AMFS_XTTAR_NAME, AMFS_XATTR_BAD, \
+						AMFS_XATTR_BAD_LEN, 0);
+		if (err != 0) {
+			err = -EPERM;
+            printk("AMFS_WRITE:Setting Xattr for file failed\n");
+			goto out;
+		}
+	}
+	
 	err = vfs_write(lower_file, buf, count, ppos);
 	/* update our inode times+sizes upon a successful lower write */
 	if (err >= 0) {
@@ -76,7 +92,7 @@ static ssize_t amfs_write(struct file *file, const char __user *buf,
 		fsstack_copy_attr_times(dentry->d_inode,
 					file_inode(lower_file));
 	}
-
+out:
 	return err;
 }
 

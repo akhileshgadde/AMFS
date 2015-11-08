@@ -120,7 +120,7 @@ int check_pattern_in_buf(const char *buf, struct ListNode *head)
 		goto out;
 	}
 	while (temp != NULL) {
-		printk("Comparing with pat: %s\n", temp->pattern);
+		//printk("Comparing with pat: %s\n", temp->pattern);
 		token = strstr(buf, temp->pattern);
 		if (token != NULL) {
 			printk("Found pattern %s in buf %s\n", temp->pattern, buf);
