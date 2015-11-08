@@ -13,10 +13,16 @@ int amfs_parse_options(char *data, char **file_name)
     }
     token1 = strstr(data, "pattdb=");
     if (!token1) {
+		printk("AMFS_ERROR: Invalid options\n");
         rc = -EINVAL;
         goto out;
     }
     token2 = strstr(token1, "=");
+	if ((!token2) || !(token2+1)) {
+		printk("AMFS_ERROR: Invalid options specified at mount\n");
+		rc = -EINVAL;
+		goto out;
+	} 
     *file_name = token2+1;
     
 out:
