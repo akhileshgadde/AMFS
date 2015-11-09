@@ -1,1 +1,74 @@
-Empty placeholder for CSE-506 F'15 HW2 README file
+AMFS (Anti Malware File system) is developed as a stackable file system on top of wrapFS. The file system detects malicious files in the file system based on the pattern database specified at the mount time. The database can be dynamically updated using the custom designed "amfsctl" IOCTL calls. Any file contaning the malicious patterns is marked as bad and would not allow the users to access the bad files for any file operations. 
+
+FILES
+------
+I. In /usr/src/hw2-akgadde/
+1. usr_amfsctl.c --> USER program for running IOCTL calls to list/add/remove patterns in database.
+2. install_module.sh --> script to load/unload AMFS module to the kernel. (re-used from Hw1).
+3. README.HW2 --> The README file for the complete project. 
+
+II. In /usr/src/hw2-akgadde/fs/amfs
+4. amfsctl.h --> Common header file for IOCTL functionality. (User and Kernel).
+5. inode.c --> Inode operations (main modifications in amfs_setxattr())
+
+COMPILING, MOUNTING and UNMOUNTING
+-----------------------------------
+i. The AMFS file system can be compiled using make and the module installed using the "install_module.sh" script in hw2-akgadde directory.
+[root@vl154 hw2-akgadde]# make
+[root@vl154 hw2-akgadde]# ./install_module.sh
+
+ii. The File system is then mounted on top of any device using the mount command, like,
+[root@vl154 hw2-akgadde]# mount -t amfs -o pattdb=../../pat.db rootdir/ /mnt/amfs/
+-o pattdb=<pattern-file>, The file system reads the listed patterns in the pattern-file and stores then in it's database.
+
+iii. The user program for AMFSCTL (IOCTL) program is already compiled in the Makefile of hw2-akgadde and an executable "amfsctl" is produced on successful compilation (in step 1).
+AMFSCTL can be used to list the existing patterns, add a new pattern or delete an old pattern.
+[root@vl154 hw2-akgadde]# ./amfsctl -l /mnt/amfs/ --> lists the stored patterns.
+[root@vl154 hw2-akgadde]# ./amfsctl -a "New pattern" /mnt/amfs/ --> Adds "new pattern" to the database and updates the pattern-file.
+[root@vl154 hw2-akgadde]# ./amfsctl -r "Old pattern" /mnt/amfs/ --> Removes an existing pattern from the database and updates the pattern-file.
+- /mnt/amfs/ --> is the mount point. Should be replaced with your moint point.
+
+
+FUNCTIONALITY
+--------------
+1. AMFSCTL (IOCTL):
+- List option uses an additonal ioctl call (AMFSCTL_LEN_PATTERN) to find the length of the total pattern buffer. The user program then allocates adequate buffer and calls the AMFSCTL_LIST_PATTERN IOCTL call to get the patterns in a char buffer. The kernel module of the call copies all the patterns into a buffer and then does a copy_to_user() to copy to the user buffer.
+- For patterns add and delete, a struct is passed to kernel that contains the length of the new pattern and the new pattern buffer. The kernel module does a copy_from_user() to copy the structure first and then again to copy the pattern buffer. The pattern database is first updated and then the complete pattern databse is then written to a temp file. The temp file is then atomically renamed as the original pattern-file. In the event of any error, the temp file is deleted and the original pattern file is preserved without corruption and an error returned to user for the IOCTL call.
+
+2. IDENTIFYING GOOD/BAD FILES.
+- When a file is being read/written in amfs_read/write, the buffer would be checked against all the patterns in the database and if it finds even a single matching pattern, the corresponding lower file's xattr, "user.amfs" would be marked as "Bad".
+- The same logic of XATTR would be used even in amfs_readdir/filldir functions to discard display of BAD files in list commands. These functions are slightly modified versions of ECRYPTS readdir/filldir in fs/ecryptfs/file.c.
+- Similarly when file with same name as the pattern file and file containing any malicious content would be copied to AMFS, but xattr for the file would be set at the time of write resulting in no read/open/change attributes for the (bad) file. 
+
+3.AMFS OPEN/READ/WRITE/LOOKUP/REVALIDATE/UNLINK/SETXATTR/RENAME... MODIFICATIONS  
+- When opening a file, a check would be performed to see if the lower file's xattr, "user.amfs" is set to "Bad". If yes, the open would not be permitted and "Permission denied error" returned to the caller.
+- As mentioned in (2), lower file xattr would be used as a criterion to decide good/bad file. The logic has been implemented in AMFS READ/WRITE/OPEN/READDIR/FILLDIR functions.
+- AMFS_ REVALIDATE code has been slightly modified to return zero incase of files whose xattr "usera.amfs" is set to bad so that it does a lookup again on the underlying file system.
+- RENAMING a BAD file is permitted and it would not have any impact on the functionality of the FS. Since we are using Exteneded attributes of the file to determine if the file is Good/Bad, so renaming the file name would still not break any functionality and hence no changes are made to vfs_rename.
+- Also, no changes are made to AMFS_LOOKUP, since we donot want the lookup to fail. All the necessary changes to detect BAD files are implemented in individual functions.
+- AMFS_SETXATTR() function has been modified to check if the incoming setxattr() call is from KERNEL/USER. As mentioned in detail in (3), it allows setxattr() only when the XATTR_KERNEL flag is set. Also, I have bit shifting and bit clear to get the flags back to the original value before calling the underlying FS setxattr(). 
+
+3. PROTECTING FILE XATTRS, "user.amfs" FROM USERS
+- setxattr() has two flags - XATTR_CREATE and XATTR_REPLACE. I had added a new flag - XATTR_KERNEL to notify the AMFS_SETXATTR() function check whether the setxattr() function has been called from kernel/user land. If the user tries to modify the "user.amfs" xattr, the amfs_setattr() would throw an error - "Operation not permitted".
+- With the present design , even the pattern file would be allowed to be copied to AMFS but AMFS doesn't allow any file operations on that file just like the case of a bad file.
+
+ASSUMPTIONS/LIMITATIONS
+-----------------------
+1. Each pattern size is a maximum of 4096 bytes. The pattern can be present in one or two pages but the siz eof each pattern doesn't exceed 4096 bytes.
+2. Also, assumed that all the patterns are strings/ASCII characters.
+3. The pattern database can be sepcified as relative/absolute path. The internal structure doesn't store the full path from the root directory and just stores the path given at the time of mount. Incase, you try to mount by giving a relative path from one location and run amfsctl calls from another location, the write would fail since the file create would take a path from the current location of AMFSCTL call.
+4.. The present design allows a file to be marked as BAD when any malicious pattern is detected. The logic works for any GOOD file to be marked later as BAD. However, any file marked as BAD cannot be marked as GOOD with the present design.
+5. If the pattern file contains two consecutive new line characters, that would be treated as end of file and no further lines would be read into the pattern database. This assumption has been since each pattern is separated only by one new line character and any '\0' or two subsequent '\n' character is treated a s end of the file. 
+6. UNLINK of all files using "rm -rf *" removes all the files except the files that are marked as BAD. However, these files can be individually deleted using "rm <bad-file>" individually. This is an expected behavior with my design since the readdir called when all files are being deleted would not list the bad files.
+
+REFERENCES
+-----------
+1. ECRYPTFS source code - to understand how private data is read and stored and readdir/filldir function- linux/source/fs/ecryptfs/.
+2. WRAPFS source code - base code on which AMFS is developed - linux/fs/wrapfs.
+3. strsep() function usage - http://stackoverflow.com/questions/6865963/strsep-usage-and-its-alternative 
+4. IOCTL examples on the Internet based on which the AMFSCTL code is written - 
+http://opensourceforu.efytimes.com/2011/08/io-control-in-linux/ 
+and 
+http://www.makelinux.net/ldd3/chp-6-sect-1.
+5. Bits setting/clearing/togglingi help on the Internet. 
+http://stackoverflow.com/questions/47981/how-do-you-set-clear-and-toggle-a-single-bit-in-c-c.

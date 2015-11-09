@@ -124,7 +124,7 @@ int deletePatternInList(struct ListNode **head, char *pat, unsigned int p_len)
 			kfree(curr);
         }
     }
-	printList(head);
+	//printList(head);
 out:
     return rc;
 }

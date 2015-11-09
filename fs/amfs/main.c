@@ -138,6 +138,7 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 	struct file *filp;
 	char *pat;
 	char *page_buf;
+	char *page_buf_holder = NULL;
 	void *lower_path_name = (void *) dev_name;
 	if ((rc = amfs_parse_options(raw_data, &filename)) != 0)
 		goto out;
@@ -151,6 +152,7 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 	}
 	memset(page_buf, 0, PAGE_SIZE);
 	head = NULL;
+	page_buf_holder = page_buf;
 	//printk("KERN_AMFS: Filename in ab_amfs_priv: %s\n", filename);
 	while ((bytes_read = amfs_read_pattern_file(filp, page_buf, PAGE_SIZE)) > 0)
 	{
@@ -163,16 +165,16 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 			}
 			else {
 	//			printk("1:%c2:%c\n", *pat, *(pat+1));
-				if ((*pat == '\n') || (*pat == '\0')) {
-					//printk("Going out\n");
+				if (*pat == '\0')
 					goto out;
-				}
 				if ((rc = addtoList(&head, pat, strlen(pat))) != 0)
 					goto free_filename;
 			}
-			
 		}
+		page_buf = page_buf_holder;
+		memset(page_buf, 0, PAGE_SIZE);
 	}
+	page_buf = page_buf_holder;
 	goto free_pagebuf;
 
 free_filename:
