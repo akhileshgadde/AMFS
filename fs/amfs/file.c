@@ -39,7 +39,7 @@ static ssize_t amfs_read(struct file *file, char __user *buf,
 		printk("Read: Pattern found in database\n");
 		/* set xattr and flush to disk */
 		err = dentry->d_inode->i_op->setxattr(dentry,AMFS_XATTR_NAME, AMFS_XATTR_BAD, \
-                        AMFS_XATTR_BAD_LEN, 0); 
+                        AMFS_XATTR_BAD_LEN, XATTR_KERNEL); 
         if (err != 0) 
 			printk("AMFS_READ: Setting Xattr failed\n");
 		else
@@ -76,7 +76,7 @@ static ssize_t amfs_write(struct file *file, const char __user *buf,
 	if (pat_check != 0) {
 		printk("AMFS_WRITE: Pattern found in file. Allowing write and setting xattr.\n");
 		err = dentry->d_inode->i_op->setxattr(dentry,AMFS_XATTR_NAME, AMFS_XATTR_BAD, \
-						AMFS_XATTR_BAD_LEN, 0);
+						AMFS_XATTR_BAD_LEN, XATTR_KERNEL);
 		if (err != 0) {
 			err = -EPERM;
             printk("AMFS_WRITE:Setting Xattr for file failed\n");
@@ -116,14 +116,15 @@ amfs_filldir(struct dir_context *ctx, const char *lower_name,
 	int ret = 0;
 	struct dentry *f_dentry = NULL;
 	f_dentry = lookup_one_len(lower_name, buf->dentry, lower_namelen);
+	printk("AMFS_FILLDIR: name: %s\n", lower_name);
 	if (IS_ERR(f_dentry)) {
 		rc = PTR_ERR(f_dentry);
 	    printk("AMFS_ERR_FILLDIR: lookup_one_len() returned [%d]\n", rc);
 	} 	else {
 		ret = f_dentry->d_inode->i_op->getxattr(f_dentry, AMFS_XATTR_NAME, \
             AMFS_XATTR_BAD, AMFS_XATTR_BAD_LEN);
-		if (ret > 0) {
-			printk("FillDir: AMFS_XATTR_BAD set for for the file. Ignoring\n");
+		if (ret ==  AMFS_XATTR_BAD_LEN) {
+			printk("FillDir: AMFS_XATTR_BAD set for for the file.\n");
 			goto out;
 		}
 		printk("Filldir: GETXATTR() return value: %d\n", rc);
@@ -133,7 +134,6 @@ amfs_filldir(struct dir_context *ctx, const char *lower_name,
 #endif
 	buf->caller->pos = buf->ctx.pos;
 	rc = !dir_emit(buf->caller, lower_name, lower_namelen, ino, d_type);
-	printk("AMFS_FILLDIR: name: %s\n", lower_name);
 out:
 	printk("AMFS_FILLDIR: Return: [%d]\n", rc);
 	return rc;
@@ -228,7 +228,6 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
         case AMFSCTL_ADD_PATTERN:
 			handle_flag = 1;
 			add_flag = 1;
-			/* writing pattern db to tmp file and then rename to original filename */
 			break;
  
        case AMFSCTL_DEL_PATTERN:
@@ -236,7 +235,6 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			del_flag = 1;
             break;
         case AMFSCTL_LEN_PATTERN:
-			/* add check for the pointers not null in case FS is not mounted */
 			handle_flag = 1;
             if (copy_to_user((unsigned long *) arg, &size, sizeof(size))) {
 				printk("IOCTL_ERR: Copy_to_user error\n");
@@ -329,6 +327,7 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 		if (!err)
 			fsstack_copy_attr_all(file_inode(file),
 					      file_inode(lower_file));
+		goto out;
 	}
 closeOutputFile:
 	if (out_filp)
@@ -440,10 +439,24 @@ static int amfs_open(struct inode *inode, struct file *file)
 	struct file *lower_file = NULL;
 	struct path lower_path;
 	struct dentry *dentry = file->f_path.dentry;
-	
+	struct super_block *sb = NULL;
+	struct amfs_sb_info *sb_info = NULL;
+
 	/* don't open unhashed/deleted files */
 	if (d_unhashed(file->f_path.dentry)) {
 		err = -ENOENT;
+		goto out_err;
+	}
+	/* check pattern database is being opened and don't allow that */
+	printk("AMFS_OPEN: filename fron struct file: %s\n", AMFS_DNAME(file));
+	
+	sb = amfs_get_super(file);
+    sb_info = amfs_get_fs_info(sb);
+	if (!strcmp(AMFS_DNAME(file), sb_info->filename)) {
+		printk("ERROR: Modification of pattern file not allowed.\n");
+		err = -EPERM;
+		amfs_set_lower_file(file, NULL);
+		//kfree(AMFS_F(file));
 		goto out_err;
 	}
 
@@ -456,20 +469,18 @@ static int amfs_open(struct inode *inode, struct file *file)
 
 	/* open lower object and link amfs's file struct to lower's */
 	amfs_get_lower_path(file->f_path.dentry, &lower_path);
-	/* Checking if file xattr is bad and then not allowing open to happen if bad */
 	
-	if(S_ISDIR(file->f_path.dentry->d_inode->i_mode))
-		printk("Opening a directory. skipping getattr()\n");
-	else {	
-		printk("Calling getxattr()\n");
+	/* Checking if file xattr is bad and then not allowing open to happen if bad */
+	if(!S_ISDIR(file->f_path.dentry->d_inode->i_mode))
+	{
 		ret = dentry->d_inode->i_op->getxattr(dentry, AMFS_XATTR_NAME, \
 						AMFS_XATTR_BAD, AMFS_XATTR_BAD_LEN); 	
-		printk("AMFS_OPEN: Getxattr() return: %d\n", ret);
-		if (ret > 0) {
-			err = -ENOENT;
+		//printk("AMFS_OPEN: Getxattr() return: %d\n", ret);
+		if (ret == AMFS_XATTR_BAD_LEN) {
+			err = -EPERM;
 			path_put(&lower_path);
 			amfs_set_lower_file(file, NULL);
-			kfree(AMFS_F(file));
+			//kfree(AMFS_F(file));
 			goto out_err;
 		}
 	}
@@ -491,7 +502,6 @@ static int amfs_open(struct inode *inode, struct file *file)
 	else
 		fsstack_copy_attr_all(inode, amfs_lower_inode(inode));
 out_err:
-	printk("Returning from AMFS_OPEN with err: %d\n", err);
 	return err;
 }
 

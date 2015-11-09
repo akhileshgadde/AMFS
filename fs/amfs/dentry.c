@@ -21,12 +21,22 @@ static int amfs_d_revalidate(struct dentry *dentry, unsigned int flags)
 	struct path lower_path;
 	struct dentry *lower_dentry;
 	int err = 1;
+	int ret = 0;
 
 	if (flags & LOOKUP_RCU)
 		return -ECHILD;
 
 	amfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
+	printk("In AMFS_REVALIDATE\n");
+	/* Return zero for entries marked as Bad in xattr of lower FS */
+	ret = lower_dentry->d_inode->i_op->getxattr(lower_dentry, AMFS_XATTR_NAME, \
+            AMFS_XATTR_BAD, AMFS_XATTR_BAD_LEN);
+	if (ret == AMFS_XATTR_BAD_LEN) {
+		err = 0;
+		goto out;
+	}
+	
 	if (!(lower_dentry->d_flags & DCACHE_OP_REVALIDATE))
 		goto out;
 	err = lower_dentry->d_op->d_revalidate(lower_dentry, flags);

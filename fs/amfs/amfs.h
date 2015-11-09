@@ -42,6 +42,9 @@
 #define AMFS_XATTR_BAD_LEN 3
 #define AMFS_XATTR_GOOD_LEN 4
 
+/* for setxattr to differentaite between kernel and user calls */
+#define XATTR_KERNEL 0x8 /* implies setxattr called from kernel */	
+
 /* amfs root inode number */
 #define AMFS_ROOT_INO     1
 
@@ -127,6 +130,9 @@ static inline struct amfs_inode_info *AMFS_I(const struct inode *inode)
 
 /* pattern in struct from args */
 #define STRUCT_PAT(arg) ((char *)((struct pat_struct *) arg)->pattern)
+
+/* filename from struct file */
+#define AMFS_DNAME(file) (file->f_path.dentry->d_name.name)
 
 /* file to lower file */
 static inline struct file *amfs_lower_file(const struct file *f)

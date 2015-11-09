@@ -452,17 +452,34 @@ static int
 amfs_setxattr(struct dentry *dentry, const char *name, const void *value,
 		size_t size, int flags)
 {
-	int err; struct dentry *lower_dentry;
+	int err = 0; 
+	struct dentry *lower_dentry;
 	struct path lower_path;
+	int set_bit = 0;
 	printk("AMFS_SETATTR: func called\n");
 	amfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
 	if (!lower_dentry->d_inode->i_op ||
 	    !lower_dentry->d_inode->i_op->setxattr) {
+		printk("AMFS_SETXATTR_ERROR: setxattr/getxattr not supported on underlying FS.\n");
 		err = -EINVAL;
 		goto out;
 	}
-
+	/*code here */
+	printk("SETXATTR: flags: %05x\n", flags);
+	/*ret = lower_dentry->d_inode->i_op->getxattr(lower_dentry, AMFS_XATTR_NAME, \
+                        AMFS_XATTR_BAD, AMFS_XATTR_BAD_LEN);
+	*/
+	set_bit = ((flags >> 3) & 1);
+	printk("Set_bit: %d\n", set_bit);
+	if ((!strcmp(name, AMFS_XATTR_NAME)) && (!set_bit)) {
+		printk("Trying to modify xattr from user for bad file. Not allowed\n");
+		err = -EACCES;
+		goto out;
+	}
+	else if (set_bit)
+		flags &= ~(1 << 3);
+	printk("SETXATTR(): After bibt shifting, flags: %d\n", flags);
 	err = lower_dentry->d_inode->i_op->setxattr(lower_dentry,
 						    name, value, size, flags);
 out:

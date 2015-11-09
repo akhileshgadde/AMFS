@@ -27,8 +27,14 @@ AMFSCTL can be used to list the existing patterns, add a new pattern or delete a
 FUNCTIONALITY
 --------------
 1. AMFSCTL (IOCTL):
-- List option uses an additonal ioctl call 9AMFSCTL_LEN_PATTERN) to find the length of the total pattern buffer. The user program then allocates adequate buffer and calls the AMFSCTL_LIST_PATTERN IOCTL call to get the patterns in a char buffer. The kernel module of the call copies all the patterns into a buffer and then does a copy_to_user() to copy to the user buffer.
+- List option uses an additonal ioctl call (AMFSCTL_LEN_PATTERN) to find the length of the total pattern buffer. The user program then allocates adequate buffer and calls the AMFSCTL_LIST_PATTERN IOCTL call to get the patterns in a char buffer. The kernel module of the call copies all the patterns into a buffer and then does a copy_to_user() to copy to the user buffer.
 - For patterns add and delete, a struct is passed to kernel that contains the length of the new pattern and the new pattern buffer. The kernel module does a copy_from_user() to copy the structure first and then again to copy the pattern buffer. The pattern database is first updated and then the complete pattern databse is then written to a temp file. The temp file is then atomically rnamed as the pattern-file. In the event of any error, the temp file is deleted and the original pattern file is preserved without corruption and an error returned to user for the IOCTL call.
+
+2. IDENTIFYING GOOD/BAD FILES.
+- When a file is being read/written in amfs_read/write, the buffer would be checked against all the patterns in the database and if it finds even a single matching pattern, the corresponding lower file's xattr, "user.amfs" would be marked as "Bad".
+
+- The same xattr, "user.amfs" would be used in readdir/filldir to identify 
+- When opening a file, a check would be performed to see if the lower file's xattr, "user.amfs" is set to "Bad". If yes, the open would not be permitted and "Permission denied error" returned.
 
 REFERENCES
 -----------
@@ -39,6 +45,7 @@ Code path - linux/fs/wrapfs.
 3. strsep() function usage - http://stackoverflow.com/questions/6865963/strsep-usage-and-its-alternative 
 4. IOCTL example - http://opensourceforu.efytimes.com/2011/08/io-control-in-linux/ and 
 http://www.makelinux.net/ldd3/chp-6-sect-1.
+5. Bits setting/clearing/toggling: http://stackoverflow.com/questions/47981/how-do-you-set-clear-and-toggle-a-single-bit-in-c-c.
 
 ASSUMPTIONS
 ------------

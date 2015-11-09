@@ -21,32 +21,30 @@ void print_pattern_db(char *buf, unsigned long size);
 
 struct pat_struct *p_struct = NULL;
 char *mnt_pt = NULL, *pat_buf = NULL;
-int list_flag = 0, add_flag = 0, del_flag = 0; 
+int list_flag = 0, add_flag = 0, del_flag = 0, print_flag = 0; 
 
 int main(int argc, char **argv)
 {
 	int rc = 0;
 	int fd = 0;
 	if (argc < 2) {
-		rc = -1;
+		rc = -EINVAL;
 		print_usage();
 		goto out;
 	}
 	rc = readargs(argc, argv);
-	//printf("Pattern: %s, mount point: %s\n", pat_buf, mnt_pt);
 	if (rc != 0) {
 		print_usage();
-		rc = -1;
+		rc = -EINVAL;
 		goto free_buf;
 	}
 	fd = open(mnt_pt, O_RDONLY);
 	if (fd < 0) {
-		printf("Error: opening file\n");
-		rc = -1;
+		printf("AMFSCTL_ERROR: Opening mnt point: %s\n", mnt_pt);
+		rc = -EBADF;
 		goto free_buf;
 	}
 	if (list_flag) {
-		//printf("List flag set, calling\n");
 		rc = get_pattern_db(fd);
 	}
 	else if (add_flag) {
@@ -56,7 +54,8 @@ int main(int argc, char **argv)
 		rc = del_from_patdb(fd, pat_buf);
 	}
 	if (rc < 0) {
-		printf("Ioctl operation failed\n");
+		//errno = rc;
+		printf("AMFSCTL_ERROR:IOCTL operation error: %s\n", strerror(errno));
 	    goto free_buf;
 	}
 
@@ -93,7 +92,8 @@ int add_to_patdb(int fd, char *pat_buf)
 	strcpy(p_struct->pattern, pat_buf);
 	if (ioctl(fd, AMFSCTL_ADD_PATTERN, p_struct) == -1) {
 		printf("AMFSCTL_ADD_PATTERN: Error in adding new pattern.\n");
-		rc = -1;
+		print_flag = 1;
+		rc = -EINVAL;
 		goto out;
 	}
 	else
@@ -121,7 +121,8 @@ int del_from_patdb(int fd, char *pat_buf)
     strcpy(p_struct->pattern, pat_buf);
 	if (ioctl(fd, AMFSCTL_DEL_PATTERN, p_struct) == -1) {
 		printf("AMFSCTL_DEL_PATTERN: Error in deleting old pattern: %s\n", p_struct->pattern);
-		rc = -1;
+		rc = -EINVAL;
+		print_flag = 1;		
 		goto out;
 	}
 	else
@@ -141,7 +142,7 @@ int get_pattern_db(int fd)
 	int rc = 0;
 	unsigned long count  = get_pattern_count(fd);
 	if (count < 0) {
-		rc = -1;
+		rc = -EINVAL;
 		goto out;
 	}
 	pat_buf = (char *) malloc(count);
@@ -151,7 +152,7 @@ int get_pattern_db(int fd)
 	}
 	if(ioctl(fd, AMFSCTL_LIST_PATTERN, pat_buf) == -1) {
 		printf("AMFSCTL_LIST_PATTERN: Error in getting pattern db\n");
-		rc = -1;
+		rc = -EPERM;
 		goto out;
 	}
 	print_pattern_db(pat_buf, count);
@@ -164,7 +165,7 @@ unsigned long get_pattern_count(int fd)
 	unsigned long count;
 	if (ioctl(fd, AMFSCTL_LEN_PATTERN, &count) == -1) {
 		printf("AMFSCTL_LEN_PATTERN: Error in getting length\n");
-		count = -1;
+		count = -EINVAL;
 		goto out;
 	}
 out:
@@ -209,7 +210,7 @@ int readargs(int argc, char **argv)
                    	goto out;
 				break;
 			default: 
-					rc = -1;
+					rc = -EINVAL;
 					goto out;
 		}
 	}
@@ -222,19 +223,18 @@ int readargs(int argc, char **argv)
 	}
 	//printf("optind: %d, argc: %d\n",optind, argc);
 	if ((optind != argc) || (mnt_pt_flag == 0)) {
-		rc = -1;
-		printf("mnt_pt not specified, freeing \n");
+		rc = -EINVAL;
+		//printf("mnt_pt not specified, freeing \n");
 		goto out;
 	}
-	goto out;
 out:
 	return rc;
 }
 
 void print_usage(){
-	printf("ERROR: Use the correct format as listed below\n");
+	printf("AMFSCTL_ERROR: Use the correct format as listed below\n\n");
 	printf("./amfsctl [-l] [-a new-pattern] [-r old-pattern] mnt-point\n");
 	printf("-l: list the existing patterns.\n");
 	printf("-a <new-pattern>: Adding a given new-pattern.\n");
-	printf("-r <old-patt>: Deleting an old pattern.\n");
+	printf("-r <old-patt>: Deleting an old pattern.\n\n");
 }

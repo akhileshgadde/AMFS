@@ -176,9 +176,7 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 //	printk("AMFS_MOUNT: Head of LL: %p\n", head);
 //	printk("KERN_AMFS: Printing patterns after storing in prov_data:\n");
 //	printList(&head);
-	/* need to move this delete to umount/kill */
-	//delAllFromList(&(sb_pr->head));	
-	goto out;
+	goto free_pagebuf;
 
 free_filename:
 	if (filename) {
@@ -189,6 +187,7 @@ free_filename:
 		kfree(head);
 		head = NULL;
 	}
+free_pagebuf:
 	if (page_buf) {
 		kfree(page_buf);
 		page_buf = NULL;

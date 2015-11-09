@@ -89,7 +89,6 @@ void delAllFromList(struct ListNode **head)
     curr = (*head);
     while (curr != NULL)
     {
-        //printk("Deleting from list\n");
 		prev = curr;
         curr = (curr->next);
 		if (prev->pattern)
@@ -114,22 +113,19 @@ int deletePatternInList(struct ListNode **head, char *pat, unsigned int p_len)
 		prev = *head;
 		curr = (*head)->next;
         while (curr != NULL) {
-			printk("Comparing %s with %s, plen: %u\n", curr->pattern, pat, p_len);
             if (!strncmp (curr->pattern, pat, p_len)) {
-				printk("DEL: Found matching pattern: %s\n", curr->pattern);
                 break;
         	}
         prev = curr;
         curr = (curr->next);
 		}
 		if (curr == NULL) { /* pattern not found in list */
-			printk("DEL: Pattern not found in list\n");
-           	rc = -1;
+			printk("AMFS_DEL: Pattern not found in list\n");
+           	rc = -EINVAL;
            	goto out;
         }
         else {
            	(prev->next) = (curr->next);
-    		printk("Del: Freeing curr\n");
 			kfree(curr);
         }
     }
@@ -147,41 +143,10 @@ void printList(struct ListNode **head)
         return;
     }
     else {
-        printk("KERN_AMFS: Patterns \n");
+        printk("KERN_AMFS: Patterns List:\n");
         while (temp != NULL) {
             printk("%s\n", temp->pattern);
             temp = (temp->next);
         }
     }
 }
-#if 0
-/* Allocate memory and copy to struct pointer */
-int struct_alloc_copy(struct pat_struct **p_struct)
-{
-	int ret = 0;
-	*p_struct = (struct pat_struct *) kmalloc(sizeof (struct pat_struct), GFP_KERNEL);
-	if (!*p_struct) {
-		err = -ENOMEM;
-		goto out;
-	}
-	if (copy_from_user(*p_struct, (struct pat_struct *) arg, sizeof (struct pat_struct))) {
-		printk("Copy_from_user failed for p_struct\n");
-		err = -EACCES;
-		goto free_pat_struct;
-	}
-	(*p_struct)->pattern = NULL;
-	printk("Size after copying to ker_buf: %u\n", p_struct->size);
-	(*p_struct)->pattern = (char *) kmalloc((*p_struct)->size + 1, GFP_KERNEL);
-	if (!(*p_struct)->pattern) {
-		err = -ENOMEM;
-		goto free_pat_struct;
-	}
-	if (copy_from_user((*p_struct)->pattern, STRUCT_PAT(arg), (*p_struct)->size)) {
-		err = -EACCES;
-		goto ret;
-	}
-
-out: 
-	return ret;
-}
-#endif
