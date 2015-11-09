@@ -10,6 +10,19 @@ I. In /usr/src/hw2-akgadde/
 II. In /usr/src/hw2-akgadde/fs/amfs
 4. amfsctl.h --> Common header file for IOCTL functionality. (User and Kernel).
 5. inode.c --> Inode operations (main modifications in amfs_setxattr())
+6. amfs.h --> Common header file with all private structures, MACROS and inline functions for all the .c files inside fs/amfs.
+7. dentry.c --> dentry operations. (main modification to amfs_d_revalidate() function).
+8. file.c --> File operations. (modifications to amfs_read, amfs_write, amfs_open, amfs_unlocked_ioctl, amfs_readdir, amfs_filldir).
+9. inode.c --> Inode operations. (main modifications to setxattr() function).
+10. l_list.h --> Linked list data structure header file.
+11. l_list.c --> Linked list operations and functions to set/get/delete from data structure.
+12. lookup.c --> FS lookup operations.
+13. main.c --> Main function of the FS. (Main modifications to AMFS_MOUNT
+14. Makefile --> makefile for all .c files in this location.
+15. mmap.c --> mmap functions.
+16. pattern_io.h --> Header file for all operations on the pattern database. All IOCTL calls use the functions declared in this header file.
+17. pattern_io.c --> implementation of functions in pattern_io.h.
+18. super.c --> Main modification to amfs_put_super() to delete extra allocated memory for private data.
 
 COMPILING, MOUNTING and UNMOUNTING
 -----------------------------------
@@ -28,6 +41,7 @@ AMFSCTL can be used to list the existing patterns, add a new pattern or delete a
 [root@vl154 hw2-akgadde]# ./amfsctl -r "Old pattern" /mnt/amfs/ --> Removes an existing pattern from the database and updates the pattern-file.
 - /mnt/amfs/ --> is the mount point. Should be replaced with your moint point.
 
+iv. All the extra memory allocated like the data structure to hold patterns and other super_block private data is freed in amfs_put_super() function in super.c. unmounting the FS invokes this function.
 
 FUNCTIONALITY
 --------------
@@ -35,12 +49,15 @@ FUNCTIONALITY
 - List option uses an additonal ioctl call (AMFSCTL_LEN_PATTERN) to find the length of the total pattern buffer. The user program then allocates adequate buffer and calls the AMFSCTL_LIST_PATTERN IOCTL call to get the patterns in a char buffer. The kernel module of the call copies all the patterns into a buffer and then does a copy_to_user() to copy to the user buffer.
 - For patterns add and delete, a struct is passed to kernel that contains the length of the new pattern and the new pattern buffer. The kernel module does a copy_from_user() to copy the structure first and then again to copy the pattern buffer. The pattern database is first updated and then the complete pattern databse is then written to a temp file. The temp file is then atomically renamed as the original pattern-file. In the event of any error, the temp file is deleted and the original pattern file is preserved without corruption and an error returned to user for the IOCTL call.
 
-2. IDENTIFYING GOOD/BAD FILES.
+2. READING PATTERNS AT MOUNT
+The pattern database file is read from the mount options at the time of mount and each pattern separated by new line character is stored in a Linked List data structure in memory. These patterns and the pattern file would be updated by AMFSCTL calls first in memory and then writing all the patterns to a temporary file and renaming that to the original pattern file. The permissions for the pattern file are set to 0 so that no one can modify the file. Inside the AMFS FS, additonal checks are places to verify the original pattern file is treated just like a BAD file as mentioned below to protect it from user land modifications.
+
+3. IDENTIFYING GOOD/BAD FILES.
 - When a file is being read/written in amfs_read/write, the buffer would be checked against all the patterns in the database and if it finds even a single matching pattern, the corresponding lower file's xattr, "user.amfs" would be marked as "Bad".
 - The same logic of XATTR would be used even in amfs_readdir/filldir functions to discard display of BAD files in list commands. These functions are slightly modified versions of ECRYPTS readdir/filldir in fs/ecryptfs/file.c.
 - Similarly when file with same name as the pattern file and file containing any malicious content would be copied to AMFS, but xattr for the file would be set at the time of write resulting in no read/open/change attributes for the (bad) file. 
 
-3.AMFS OPEN/READ/WRITE/LOOKUP/REVALIDATE/UNLINK/SETXATTR/RENAME... MODIFICATIONS  
+4.AMFS OPEN/READ/WRITE/LOOKUP/REVALIDATE/UNLINK/SETXATTR/RENAME... MODIFICATIONS  
 - When opening a file, a check would be performed to see if the lower file's xattr, "user.amfs" is set to "Bad". If yes, the open would not be permitted and "Permission denied error" returned to the caller.
 - As mentioned in (2), lower file xattr would be used as a criterion to decide good/bad file. The logic has been implemented in AMFS READ/WRITE/OPEN/READDIR/FILLDIR functions.
 - AMFS_ REVALIDATE code has been slightly modified to return zero incase of files whose xattr "usera.amfs" is set to bad so that it does a lookup again on the underlying file system.
@@ -48,7 +65,7 @@ FUNCTIONALITY
 - Also, no changes are made to AMFS_LOOKUP, since we donot want the lookup to fail. All the necessary changes to detect BAD files are implemented in individual functions.
 - AMFS_SETXATTR() function has been modified to check if the incoming setxattr() call is from KERNEL/USER. As mentioned in detail in (3), it allows setxattr() only when the XATTR_KERNEL flag is set. Also, I have bit shifting and bit clear to get the flags back to the original value before calling the underlying FS setxattr(). 
 
-3. PROTECTING FILE XATTRS, "user.amfs" FROM USERS
+5. PROTECTING FILE XATTRS, "user.amfs" FROM USERS
 - setxattr() has two flags - XATTR_CREATE and XATTR_REPLACE. I had added a new flag - XATTR_KERNEL to notify the AMFS_SETXATTR() function check whether the setxattr() function has been called from kernel/user land. If the user tries to modify the "user.amfs" xattr, the amfs_setattr() would throw an error - "Operation not permitted".
 - With the present design , even the pattern file would be allowed to be copied to AMFS but AMFS doesn't allow any file operations on that file just like the case of a bad file.
 
