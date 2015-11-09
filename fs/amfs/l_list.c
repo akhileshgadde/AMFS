@@ -58,12 +58,10 @@ void copy_pattern_db(struct ListNode *head, char *buf, unsigned long size)
 	//int first_copy = 1;
 	struct ListNode *temp = head;
 	while ((size) && (temp != NULL)) {
-		//printk("Copying at %p\n", (buf+offset));
 		memcpy((buf+offset), temp->pattern, temp->len);
 		if (!last_char_flag) {
 			last_char_flag = 1;
 		}
-		//printk("Setting \n at %p\n", (buf + offset)[temp->len]);
 		(buf + offset)[temp->len] = '\n';
 		offset += (temp->len + 1);
 		size -= (temp->len + 1);
@@ -76,7 +74,6 @@ void print_pattern_db(char *buf, unsigned long size)
 {
 	unsigned offset = 0;
 	while (size) {
-		printk("%s", buf+offset);
 		size -= (strlen(buf) + 1);
 		offset += (strlen(buf) + 1);
 	}
@@ -104,7 +101,6 @@ int deletePatternInList(struct ListNode **head, char *pat, unsigned int p_len)
     int rc = 0;
     struct ListNode *prev = NULL, *curr = NULL;
     if (!strncmp((*head)->pattern, pat, p_len)) {
-        printk("DEL: found matching %s in head\n", (*head)->pattern);
 		curr = *head;
 		*head = (*head)->next;
         kfree(curr);
@@ -120,7 +116,6 @@ int deletePatternInList(struct ListNode **head, char *pat, unsigned int p_len)
         curr = (curr->next);
 		}
 		if (curr == NULL) { /* pattern not found in list */
-			printk("AMFS_DEL: Pattern not found in list\n");
            	rc = -EINVAL;
            	goto out;
         }

@@ -28,13 +28,17 @@ FUNCTIONALITY
 --------------
 1. AMFSCTL (IOCTL):
 - List option uses an additonal ioctl call (AMFSCTL_LEN_PATTERN) to find the length of the total pattern buffer. The user program then allocates adequate buffer and calls the AMFSCTL_LIST_PATTERN IOCTL call to get the patterns in a char buffer. The kernel module of the call copies all the patterns into a buffer and then does a copy_to_user() to copy to the user buffer.
-- For patterns add and delete, a struct is passed to kernel that contains the length of the new pattern and the new pattern buffer. The kernel module does a copy_from_user() to copy the structure first and then again to copy the pattern buffer. The pattern database is first updated and then the complete pattern databse is then written to a temp file. The temp file is then atomically rnamed as the pattern-file. In the event of any error, the temp file is deleted and the original pattern file is preserved without corruption and an error returned to user for the IOCTL call.
+- For patterns add and delete, a struct is passed to kernel that contains the length of the new pattern and the new pattern buffer. The kernel module does a copy_from_user() to copy the structure first and then again to copy the pattern buffer. The pattern database is first updated and then the complete pattern databse is then written to a temp file. The temp file is then atomically renamed as the original pattern-file. In the event of any error, the temp file is deleted and the original pattern file is preserved without corruption and an error returned to user for the IOCTL call.
 
 2. IDENTIFYING GOOD/BAD FILES.
 - When a file is being read/written in amfs_read/write, the buffer would be checked against all the patterns in the database and if it finds even a single matching pattern, the corresponding lower file's xattr, "user.amfs" would be marked as "Bad".
+- The same logic of XATTR would be used even in amfs_readdir/filldir functions to discard display of BAD files in list commands. AMFS_FILLDIR and AMFS_READDIR code has been largely re-used from ecryptfs READDIR/FILLDIR functions. The functions are slightly modified to suit the present needs in AMFS.
 
 - The same xattr, "user.amfs" would be used in readdir/filldir to identify 
 - When opening a file, a check would be performed to see if the lower file's xattr, "user.amfs" is set to "Bad". If yes, the open would not be permitted and "Permission denied error" returned.
+
+3. PROTECTING FILE XATTRS, "user.amfs" FROM USERS
+- setxattr() has two flags - XATTR_CREATE and XATTR_REPLACE. I had added a new flag - XATTR_KERNEL to notify the AMFS_SETXATTR() function check whether the setxattr() function has been called from kernel/user land. If the user tries to modify the "user.amfs" xattr, the amfs_setattr() would throw an error - "Operation not permitted".
 
 REFERENCES
 -----------

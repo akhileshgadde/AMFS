@@ -173,9 +173,6 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 			
 		}
 	}
-//	printk("AMFS_MOUNT: Head of LL: %p\n", head);
-//	printk("KERN_AMFS: Printing patterns after storing in prov_data:\n");
-//	printList(&head);
 	goto free_pagebuf;
 
 free_filename:

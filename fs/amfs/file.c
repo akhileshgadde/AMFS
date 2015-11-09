@@ -31,19 +31,19 @@ static ssize_t amfs_read(struct file *file, char __user *buf,
 	else
 		bytes = err;
 	sb = amfs_get_super(file);
-	//printk("amfs_read: Head : %p\n", AMFS_SB(sb)->head);
 	
 	/* code to check if buffer contains any bad patterns */
 	err = check_pattern_in_buf(buf, AMFS_SB(sb)->head); /* o if not found, -1 if found/no pattern database */
 	if (err != 0) {
-		printk("Read: Pattern found in database\n");
 		/* set xattr and flush to disk */
 		err = dentry->d_inode->i_op->setxattr(dentry,AMFS_XATTR_NAME, AMFS_XATTR_BAD, \
                         AMFS_XATTR_BAD_LEN, XATTR_KERNEL); 
-        if (err != 0) 
-			printk("AMFS_READ: Setting Xattr failed\n");
+        #if 0
+		if (err != 0) 
+			printk("KERN_AMFS_READ: Setting Xattr failed\n");
 		else
-			printk("READ: Set xttar successfully\n");
+			printk("KERN_AMFS_READ: Set xttar successfully\n");
+		#endif
 		err = -EPERM;
 		goto out;
 	}
@@ -71,15 +71,13 @@ static ssize_t amfs_write(struct file *file, const char __user *buf,
 	lower_file = amfs_lower_file(file);
 	/* code to check if malware exists in buffer and not allow write to happen */
 	sb = amfs_get_super(file);
-	printk("In AMFS_WRITE\n");
 	pat_check = check_pattern_in_buf(buf, AMFS_SB(sb)->head);
 	if (pat_check != 0) {
-		printk("AMFS_WRITE: Pattern found in file. Allowing write and setting xattr.\n");
 		err = dentry->d_inode->i_op->setxattr(dentry,AMFS_XATTR_NAME, AMFS_XATTR_BAD, \
 						AMFS_XATTR_BAD_LEN, XATTR_KERNEL);
 		if (err != 0) {
 			err = -EPERM;
-            printk("AMFS_WRITE:Setting Xattr for file failed\n");
+            printk("KERN_AMFS_WRITE:Setting Xattr for file failed.\n");
 			goto out;
 		}
 	}
@@ -112,30 +110,24 @@ amfs_filldir(struct dir_context *ctx, const char *lower_name,
 	struct amfs_getdents_callback *buf = 
 			container_of(ctx, struct amfs_getdents_callback, ctx);
 	int rc = 0;
-	#if 1
 	int ret = 0;
 	struct dentry *f_dentry = NULL;
 	f_dentry = lookup_one_len(lower_name, buf->dentry, lower_namelen);
-	printk("AMFS_FILLDIR: name: %s\n", lower_name);
 	if (IS_ERR(f_dentry)) {
 		rc = PTR_ERR(f_dentry);
-	    printk("AMFS_ERR_FILLDIR: lookup_one_len() returned [%d]\n", rc);
 	} 	else {
 		ret = f_dentry->d_inode->i_op->getxattr(f_dentry, AMFS_XATTR_NAME, \
             AMFS_XATTR_BAD, AMFS_XATTR_BAD_LEN);
 		if (ret ==  AMFS_XATTR_BAD_LEN) {
-			printk("FillDir: AMFS_XATTR_BAD set for for the file.\n");
+	//		printk("FillDir: AMFS_XATTR_BAD set for for the file.\n");
 			goto out;
 		}
-		printk("Filldir: GETXATTR() return value: %d\n", rc);
 		dput(f_dentry);
 	}
 	/* code to be added here */
-#endif
 	buf->caller->pos = buf->ctx.pos;
 	rc = !dir_emit(buf->caller, lower_name, lower_namelen, ino, d_type);
 out:
-	printk("AMFS_FILLDIR: Return: [%d]\n", rc);
 	return rc;
 }
 
@@ -219,7 +211,7 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			//printk("pattern Db after copying to buf:\n");
 			//print_pattern_db(pat_buf, size);
 			if (copy_to_user((char *) arg, pat_buf, size)) {
-				printk("IOCTL: copy_to_user error\n");
+				printk("KERN_ERROR:AMFSCTL_IOCTL: copy_to_user error\n");
 				err = -EACCES;
 				goto free_patbuf;
 			}
@@ -237,7 +229,7 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
         case AMFSCTL_LEN_PATTERN:
 			handle_flag = 1;
             if (copy_to_user((unsigned long *) arg, &size, sizeof(size))) {
-				printk("IOCTL_ERR: Copy_to_user error\n");
+				printk("KERN_ERROR: AMFS_IOCTL: Copy_to_user error\n");
                 err = -EACCES;
                 goto out;
             }
@@ -251,12 +243,11 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 			goto out;
 		}
 		if (copy_from_user(p_struct, (struct pat_struct *) arg, sizeof (struct pat_struct))) {
-			printk("Copy_from_user failed for p_struct\n");
+			printk("KERN_ERROR: AMFSCTL_IOCTL: copy_from_user failed.\n");
 			err = -EACCES;
 			goto free_pat_struct;
 		}
 		p_struct->pattern = NULL;
-		//printk("Size after copying to ker_buf: %u\n", p_struct->size);
 		p_struct->pattern = (char *) kmalloc(p_struct->size + 1, GFP_KERNEL);
 		if (!p_struct->pattern) {
 			err = -ENOMEM;
@@ -293,13 +284,11 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 		}
 		err = write_to_pat_file(tmp_filp, sb_info->head);
 		if (err != 0) {
-			printk("Writing to temp file failed\n");
 			err = -EACCES;
 			goto closeTmpFile;
 		}
 		out_filp = open_output_file(sb_info->filename, &err, 0, 1);
 		if (!out_filp) {
-			printk("out_filp error\n");
 			if (err == -EACCES)
 				goto closeOutputFile;
 			else
@@ -307,10 +296,9 @@ static long amfs_unlocked_ioctl(struct file *file, unsigned int cmd,
 		}
 		err = file_rename(tmp_filp, out_filp);
 		if (err != 0) {
-			printk("Rename failed\n");
+			printk("KERN_ERROR: AMFSCTL: File rename failed\n");
 			err = -EACCES;
 		}
-		//printList(&sb_info->head); 
 		goto closeOutputFile;
 	}
 
@@ -448,15 +436,12 @@ static int amfs_open(struct inode *inode, struct file *file)
 		goto out_err;
 	}
 	/* check pattern database is being opened and don't allow that */
-	printk("AMFS_OPEN: filename fron struct file: %s\n", AMFS_DNAME(file));
 	
 	sb = amfs_get_super(file);
     sb_info = amfs_get_fs_info(sb);
 	if (!strcmp(AMFS_DNAME(file), sb_info->filename)) {
-		printk("ERROR: Modification of pattern file not allowed.\n");
+		printk("KERN_ERROR: AMFS_OPEN: Modification of pattern file not allowed.\n");
 		err = -EPERM;
-		amfs_set_lower_file(file, NULL);
-		//kfree(AMFS_F(file));
 		goto out_err;
 	}
 
@@ -475,12 +460,11 @@ static int amfs_open(struct inode *inode, struct file *file)
 	{
 		ret = dentry->d_inode->i_op->getxattr(dentry, AMFS_XATTR_NAME, \
 						AMFS_XATTR_BAD, AMFS_XATTR_BAD_LEN); 	
-		//printk("AMFS_OPEN: Getxattr() return: %d\n", ret);
 		if (ret == AMFS_XATTR_BAD_LEN) {
 			err = -EPERM;
 			path_put(&lower_path);
 			amfs_set_lower_file(file, NULL);
-			//kfree(AMFS_F(file));
+			kfree(AMFS_F(file));
 			goto out_err;
 		}
 	}

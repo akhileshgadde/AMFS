@@ -13,18 +13,21 @@ int amfs_parse_options(char *data, char **file_name)
     }
     token1 = strstr(data, "pattdb=");
     if (!token1) {
-		printk("AMFS_ERROR: Invalid options\n");
+		printk("KERN_ERROR: AMFS_PARSE_OPTIONS: Invalid options.\n");
         rc = -EINVAL;
         goto out;
     }
     token2 = strstr(token1, "=");
 	if ((!token2) || !(token2+1)) {
-		printk("AMFS_ERROR: Invalid options specified at mount\n");
+		printk("KERN_ERROR: AMFS_PARSE_OPTIONS: Invalid options specified at mount.\n");
 		rc = -EINVAL;
 		goto out;
-	} 
-    *file_name = token2+1;
-    
+	}
+	token2++;
+	/* check for any spaces after '=' in patdb */
+	while (*token2 == ' ')
+		token2++;
+    *file_name = token2; 
 out:
     return rc;  
 }
@@ -60,14 +63,13 @@ int amfs_open_pattern_file(const char *file_name, struct file **filp)
     *filp = filp_open(file_name, O_RDONLY, 0);
     if ((*filp == NULL) || (IS_ERR(*filp))) {
         rc = PTR_ERR(*filp);
-		printk("Error opening filename: %s\n", file_name);
-        printk("KERNEL_AMFS: Error opening pattern file: %d\n", rc);
+        printk("KERNEL_ERR: AMFS: Error opening pattern file: %s\n", file_name);
         goto out;
     }
     if ((rc = amfs_check_pattern_file(*filp)) != 0)
         goto out;
     if ((!(*filp)->f_op) || (!(*filp)->f_op->read)) {
-        printk("KERNEL_AMFS: No read permission on pattern file\n");
+        printk("AMFS: No read permission on pattern file\n");
         rc = -EACCES;
         goto out;
     }
@@ -121,15 +123,12 @@ int check_pattern_in_buf(const char *buf, struct ListNode *head)
 	char *token = NULL;
 	struct ListNode *temp = head;
 	if (head == NULL) {
-		printk("check_pattern: Head is NULL\n");
 		rc = -1;
 		goto out;
 	}
 	while (temp != NULL) {
-		//printk("Comparing with pat: %s\n", temp->pattern);
 		token = strstr(buf, temp->pattern);
 		if (token != NULL) {
-			printk("Found pattern %s in buf %s\n", temp->pattern, buf);
 			rc = -1; /* Found */
 			goto out;
 		}
@@ -155,7 +154,6 @@ int write_output_file(struct file *filp, void *buf, unsigned int size)
 	vfs_write(filp, "\n", 1, &filp->f_pos);
 	bytes += 1;
     set_fs(oldfs);
-    //printk("KERN: Write to file: bytes: %d\n", bytes);
     return bytes;
 }
 
@@ -171,27 +169,23 @@ struct file* open_output_file(const char *filename, long *err, umode_t mode, int
         *err = -EBADF;
         goto returnFailure;
     }
-    printk("Opening file: %s\n", filename);
-    if (flags == 0) /* opening temp file */{
-		//printk("opening temp file\n");
+    if (flags == 0) /* opening temp file */
         filp = filp_open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0);
-    }
-    else if (flags == 1) { /* opening output file */
-		//printk("Opening output file\n");
+    else if (flags == 1)  /* opening output file */
         filp = filp_open(filename, O_WRONLY, 0);
-    }
+	
 	if (!filp) {
         if ((*err = amfs_check_pattern_file(filp)) != 0)
                 goto returnFailure;
     }
     if (IS_ERR(filp)) {
-        printk("KERN: Outputfile write error %d\n", (int) PTR_ERR(filp));
+        printk("KERN_ERR: AMFS: Outputfile write error %d\n", (int) PTR_ERR(filp));
         *err = -EPERM;
         filp = NULL;
         goto returnFailure;
     }
     if ((!filp->f_op) || (!filp->f_op->write)) {
-        printk("KERN: No write permission on Output file %d\n", (int) PTR_ERR(filp));
+        printk("KERN: AMFS: No write permission on Output file %d\n", (int) PTR_ERR(filp));
         *err = -EACCES;
         filp = NULL;
         goto returnFailure;
@@ -215,13 +209,12 @@ int file_rename(struct file *tmp_filp, struct file *out_filp)
     }
 	if (tmp_filp->f_path.dentry->d_inode->i_ino == out_filp->f_path.dentry->d_inode->i_ino) {
     	err = -EPERM;
-		printk("ERROR: Both filenames are same\n");
         goto end;
     }
     err = vfs_rename(tmp_filp->f_path.dentry->d_parent->d_inode, tmp_filp->f_path.dentry, \
             out_filp->f_path.dentry->d_parent->d_inode, out_filp->f_path.dentry, NULL, 0);
     if (err != 0) {
-        printk("KERN: File rename error\n");
+        printk("KERN_ERR: AMFS_RENAME: File rename error\n");
         err = -EACCES;
         goto end;
     }
