@@ -140,7 +140,6 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 	void *lower_path_name = (void *) dev_name;
 	if ((rc = amfs_parse_options(raw_data, &filename)) != 0)
 		goto out;
-	//printk("KERN_AMFS_MOUNT: File_name: %s, len: %d\n", filename, strlen(filename));
 	if ((rc = amfs_open_pattern_file(filename, &filp)) != 0)
 		goto out;
 	page_buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
@@ -151,7 +150,6 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 	memset(page_buf, 0, PAGE_SIZE);
 	head = NULL;
 	page_buf_holder = page_buf;
-	//printk("KERN_AMFS: Filename in ab_amfs_priv: %s\n", filename);
 	while ((bytes_read = amfs_read_pattern_file(filp, page_buf, PAGE_SIZE)) > 0)
 	{
 		memset(page_buf+bytes_read, 0, PAGE_SIZE - bytes_read);
@@ -162,7 +160,6 @@ struct dentry *amfs_mount(struct file_system_type *fs_type, int flags,
 				printk("KERN_AMFS: No new line char found in page_buf\n");
 			}
 			else {
-	//			printk("1:%c2:%c\n", *pat, *(pat+1));
 				if (*pat == '\0')
 					goto out;
 				if ((rc = addtoList(&head, pat, strlen(pat))) != 0)
