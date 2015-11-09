@@ -61,8 +61,6 @@ static int amfs_read_super(struct super_block *sb, void *raw_data, int silent)
 		goto out_free;
 	}
 	strcpy(AMFS_SB(sb)->filename, filename);
-	//printk("SUPER: filename: %s\n", (AMFS_SB(sb)->filename));	
-	//printk("SUPER: Head from sb_pr->head: %p\n", head);
 	AMFS_SB(sb)->head = head;
 	
 	/* inherit maxbytes from lower file system */
