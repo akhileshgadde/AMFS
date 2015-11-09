@@ -32,7 +32,8 @@ FUNCTIONALITY
 
 2. IDENTIFYING GOOD/BAD FILES.
 - When a file is being read/written in amfs_read/write, the buffer would be checked against all the patterns in the database and if it finds even a single matching pattern, the corresponding lower file's xattr, "user.amfs" would be marked as "Bad".
-- The same logic of XATTR would be used even in amfs_readdir/filldir functions to discard display of BAD files in list commands. AMFS_FILLDIR and AMFS_READDIR code has been largely re-used from ecryptfs READDIR/FILLDIR functions. The functions are slightly modified to suit the present needs in AMFS.
+- The same logic of XATTR would be used even in amfs_readdir/filldir functions to discard display of BAD files in list commands. These functions are slightly modified versions of ECRYPTS readdir/filldir in fs/ecryptfs/file.c.
+- 
 
 - The same xattr, "user.amfs" would be used in readdir/filldir to identify 
 - When opening a file, a check would be performed to see if the lower file's xattr, "user.amfs" is set to "Bad". If yes, the open would not be permitted and "Permission denied error" returned.

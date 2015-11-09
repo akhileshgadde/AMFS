@@ -25,25 +25,23 @@ static ssize_t amfs_read(struct file *file, char __user *buf,
 	lower_file = amfs_lower_file(file);
 	err = vfs_read(lower_file, buf, count, ppos);
 	if (err < 0) {
-		printk("VFS_READ from lower file failed\n");
+		printk("KERN_ERR: AMFS_READ: VFS_READ from lower file failed.\n");
 		goto out;
 	}
 	else
 		bytes = err;
 	sb = amfs_get_super(file);
-	
+	if (!strcmp(AMFS_DNAME(file), AMFS_SB(sb)->filename)) {
+ 		printk("KERN_DEBUG: AMFS_READ: Pattern database file attempt to read.\n");
+    	err = -EPERM;
+    	goto out;
+ 	}
 	/* code to check if buffer contains any bad patterns */
 	err = check_pattern_in_buf(buf, AMFS_SB(sb)->head); /* o if not found, -1 if found/no pattern database */
 	if (err != 0) {
-		/* set xattr and flush to disk */
+	/* set xattr and flush to disk */
 		err = dentry->d_inode->i_op->setxattr(dentry,AMFS_XATTR_NAME, AMFS_XATTR_BAD, \
                         AMFS_XATTR_BAD_LEN, XATTR_KERNEL); 
-        #if 0
-		if (err != 0) 
-			printk("KERN_AMFS_READ: Setting Xattr failed\n");
-		else
-			printk("KERN_AMFS_READ: Set xttar successfully\n");
-		#endif
 		err = -EPERM;
 		goto out;
 	}
@@ -136,12 +134,9 @@ static int amfs_readdir(struct file *file, struct dir_context *ctx)
 	int err;
 	struct file *lower_file = NULL;
 	struct inode *inode = file_inode(file);
-	//struct dentry *dentry = file->f_path.dentry;
 	struct amfs_getdents_callback buf = {
 		.ctx.actor = amfs_filldir,
 		.caller = ctx,
-		//.sb = inode->i_sb,
-		//.dentry = dentry,
 	};
 	if (!file) {
 		err = -EBADF;
@@ -427,8 +422,6 @@ static int amfs_open(struct inode *inode, struct file *file)
 	struct file *lower_file = NULL;
 	struct path lower_path;
 	struct dentry *dentry = file->f_path.dentry;
-	struct super_block *sb = NULL;
-	struct amfs_sb_info *sb_info = NULL;
 
 	/* don't open unhashed/deleted files */
 	if (d_unhashed(file->f_path.dentry)) {
@@ -437,14 +430,6 @@ static int amfs_open(struct inode *inode, struct file *file)
 	}
 	/* check pattern database is being opened and don't allow that */
 	
-	sb = amfs_get_super(file);
-    sb_info = amfs_get_fs_info(sb);
-	if (!strcmp(AMFS_DNAME(file), sb_info->filename)) {
-		printk("KERN_ERROR: AMFS_OPEN: Modification of pattern file not allowed.\n");
-		err = -EPERM;
-		goto out_err;
-	}
-
 	file->private_data =
 		kzalloc(sizeof(struct amfs_file_info), GFP_KERNEL);
 	if (!AMFS_F(file)) {

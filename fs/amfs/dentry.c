@@ -28,7 +28,6 @@ static int amfs_d_revalidate(struct dentry *dentry, unsigned int flags)
 
 	amfs_get_lower_path(dentry, &lower_path);
 	lower_dentry = lower_path.dentry;
-	printk("In AMFS_REVALIDATE\n");
 	/* Return zero for entries marked as Bad in xattr of lower FS */
 	ret = lower_dentry->d_inode->i_op->getxattr(lower_dentry, AMFS_XATTR_NAME, \
             AMFS_XATTR_BAD, AMFS_XATTR_BAD_LEN);
