@@ -54,10 +54,17 @@ FUNCTIONALITY
 
 ASSUMPTIONS/LIMITATIONS
 -----------------------
-1. Each pattern size is a maximum of 4096 bytes. The pattern can be present in one or two pages but the siz eof each pattern doesn't exceed 4096 bytes.
-2. Also, assumed that all the patterns are strings/ASCII characters.
+1. Each pattern size can be a maximum size of 4096 bytes. When a single pattern extends beyond a page i.e., present in two pages, the current design forgets the part of pattern in previous page and treats the text in the following page till the new line character is encounteres as one pattern.
+2. All the patterns are assumed to be strings/ASCII characters and not binary data. String manipulation functions are used in the code.
 3. The pattern database can be sepcified as relative/absolute path. The internal structure doesn't store the full path from the root directory and just stores the path given at the time of mount. Incase, you try to mount by giving a relative path from one location and run amfsctl calls from another location, the write would fail since the file create would take a path from the current location of AMFSCTL call.
-4.. The present design allows a file to be marked as BAD when any malicious pattern is detected. The logic works for any GOOD file to be marked later as BAD. However, any file marked as BAD cannot be marked as GOOD with the present design.
+For example,
+a. Mounting AMFS from ~hw2-akgadde/fs/amfs location 
+# mount -t amfs -o pattdb=../../pat.db ../../rootdir/ /mnt/amfs/
+- The FS stores the path to pattern file in the super_block structure as "../../rootdir".
+b. Now, if we run the amfsctl calls from ~/hw2-akgadde location:
+# ./amfsctl -a "test why" /mnt/amfs/
+- The adding and deletion would fail since the stored path is ../../pat.db but that file doesn't exist wrt to the current location. Hence opening pattern file would fail in IOCTL calls as "No Such file or directory".
+4. The present design allows a file to be marked as BAD when any malicious pattern is detected. The logic works for any GOOD file to be marked later as BAD. However, any file marked as BAD cannot be marked as GOOD with the present design.
 5. If the pattern file contains two consecutive new line characters, that would be treated as end of file and no further lines would be read into the pattern database. This assumption has been since each pattern is separated only by one new line character and any '\0' or two subsequent '\n' character is treated a s end of the file. 
 6. UNLINK of all files using "rm -rf *" removes all the files except the files that are marked as BAD. However, these files can be individually deleted using "rm <bad-file>" individually. This is an expected behavior with my design since the readdir called when all files are being deleted would not list the bad files.
 
