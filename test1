@@ -1,0 +1,45 @@
+Hello$
+Hi pattern is good$
+why is this a pattern$
+super file$
+Test pattern$
+Test why$
+dkjdnhflkenlkd$
+This eBook is for the use of anyone anywhere at no cost and with almost no restrictions whatsoever.  You may copy it, give it away or re-use it under the terms of the Project Gutenberg License included$
+with this eBook or online at www.gutenberg.org/license jkdsnlkafmv/lkgmvc.,$
+Does Vim support this feature?$
+:set list in Vim will show whitespace. End of lines show as '$' and carriage returns usually show as '^M'.$
+Does anyone know of a text editor on Linux that allows me to see line breaks and carriage returns? Does Vim support this feature?$
+hjnfdkklndsf/lkdmgltrdkfvm fzd/.,mlkgbd/lmfznalkjbg ns/mv$
+To disagree with the official answer$
+n VIM, this should do the same thing as using the "-b" command line option. If you put this in your startup (i.e. .vimrc) file, it will always be in place for you.$
+On many *nix systems, there is a "dos2unix" or "unix2dos" command that can process the file and correct any suspected line ending issues. If there is no problem with the line endings, the files will not be changed.$
+The “Touring Club de France” (founded in 1890), is at the present time$
+the largest Touring Association in the whole world. Its principal aim is$
+to introduce France--admirable country and one of the loveliest on$
+earth--to French people themselves and to foreigners.$
+It seeks to develop travel in all its forms, on foot, on horseback, on$
+bicycle, in carriage, motor, yacht, or railway, and soon in aeroplane.$
+Every member of the Association receives a badge and an identity ticket$
+free of charge, as also the “Revue Mensuelle” every month.$
+Members have also the benefit of special prices in a certain number of$
+affiliated hotels; and this holds good for the purchase of guide-books$
+and Staff (Etat-major) maps, as well as those of the “Ministère de$
+l’Intérieur,” the T. C. F., etc. They may insert notices regarding the$
+sale or purchase of traveling requisites, in the “Revue” (1 fr. per$
+line). The “Comité des Contentieux” is ready to give them counsel with$
+regard to traveling, and 3,000 delegates in all the principal towns are$
+able to give them advice and information about the curiosities of art or$
+of nature in the neighborhood, as well as concerning the roads, hotels,$
+motor-agents, garages, etc.$
+Members are accorded free passage across the frontier for a bicycle or$
+motor-bicycle. For a motor-car the Association gives a “Triptyque”$
+ensuring free passage through the “douane,” etc.$
+When the United States of America declared war on Germany, it was not$
+known exactly what shape their intervention would take_--i.e., _if their$
+help would be limited to aiding the Allies financially and industrially$
+and tightening the blockade, or if they would take an active part in the$
+military operations. Opinions on this point were much divided, and if$
+many were in favour of an unrestricted participation in the war, others$
+were for a more moderate programme._$
+

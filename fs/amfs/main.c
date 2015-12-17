@@ -32,7 +32,7 @@ static int amfs_read_super(struct super_block *sb, void *raw_data, int silent)
 		err = -EINVAL;
 		goto out;
 	}
-
+	printk("READ_SUPER: dev_name: %s\n", dev_name);
 	/* parse lower path */
 	err = kern_path(dev_name, LOOKUP_FOLLOW | LOOKUP_DIRECTORY,
 			&lower_path);

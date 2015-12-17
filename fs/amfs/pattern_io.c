@@ -1,12 +1,45 @@
 #include "pattern_io.h"
 #include "amfs.h"
 #include "l_list.h"
-//#include <linux/string.h>
+
+int find_full_path(const char *filename)
+{
+    int err = 0;
+    struct path lower_path;
+    char *path;
+    char *kbuf;
+    err = kern_path(filename, LOOKUP_FOLLOW | LOOKUP_DIRECTORY,
+            &lower_path);
+    if (err) {
+  		printk(KERN_ERR "amfs: error accessing "
+        	       "lower directory '%s'\n", filename);
+    	goto out;
+    }
+
+    kbuf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+    if (!kbuf)
+        goto out;
+    path = d_path(&lower_path, kbuf, PAGE_SIZE);
+    if (IS_ERR(path)) {
+        err = PTR_ERR(path);
+        goto out_free;
+    }
+    printk("Full path: %s\n", path);
+    
+out_free:
+    kfree(kbuf);
+    return err;
+out:
+    return err;
+}
+
 
 int amfs_parse_options(char *data, char **file_name)
 {
     int rc = 0;
     char *token1, *token2;
+	//char *kbuf;
+	//char *path;
     if (!data) {
         rc = -EINVAL;
         goto out;
@@ -27,7 +60,9 @@ int amfs_parse_options(char *data, char **file_name)
 	/* check for any spaces after '=' in patdb */
 	while (*token2 == ' ')
 		token2++;
-    *file_name = token2; 
+    *file_name = token2;
+	//rc = find_full_path(*file_name);
+
 out:
     return rc;  
 }
